@@ -14,7 +14,19 @@ test.beforeEach(async ({}, testInfo) => {
   await expect(page.locator('#editor')).toHaveValue(startup ? '# 冷启动\n' : '');
   await expect(page.locator('#dirty')).toBeEmpty();
 });
-test.afterEach(async () => { if (app) { await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().forEach(w => w.destroy())); await app.close(); } });
+test.afterEach(async () => {
+  if (!app) return;
+  try {
+    // Closing the last window quits the process on Windows/Linux. Only ask a
+    // running window's process to discard edits; close() also handles exited apps.
+    if (app.windows().length) {
+      await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().forEach(w => w.destroy()));
+    }
+  } finally {
+    await app.close();
+    app = undefined;
+  }
+});
 async function chooseOpen(file) { await app.evaluate(({ dialog }, file) => { dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [file] }); }, file); }
 async function chooseSave(file) { await app.evaluate(({ dialog }, file) => { dialog.showSaveDialog = async () => ({ canceled: false, filePath: file }); }, file); }
 test('renders math, diagram, code and switches reading mode', async () => {
@@ -161,4 +173,9 @@ test('system open immediately after startup does not ask to save', async () => {
 test('cold launch opens the requested file without a save prompt', async () => {
   await expect(page.locator('#preview h1')).toHaveText('冷启动');
   await expect(page.locator('#confirm')).not.toBeVisible();
+});
+
+test('cleanup handles an application that has already exited', async () => {
+  await app.close();
+  expect(app.windows()).toHaveLength(0);
 });
