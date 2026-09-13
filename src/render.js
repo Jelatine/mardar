@@ -10,8 +10,14 @@ const md = new MarkdownIt({ html: true, linkify: true, typographer: true, highli
 }}).use(texmath, { engine: katex, delimiters: 'dollars', katexOptions: { throwOnError: false, trust: false } });
 const validateLink = md.validateLink;
 md.validateLink = url => /^data:image\/(?:png|jpeg|gif|webp|svg\+xml);base64,[a-z0-9+/=]+$/i.test(url) || validateLink(url);
+md.core.ruler.push('source_positions', state => {
+  for (const token of state.tokens) if (token.map && token.nesting !== -1) {
+    token.attrSet('data-source-line', String(token.map[0]));
+    token.attrSet('data-source-end', String(token.map[1]));
+  }
+});
 const fence = md.renderer.rules.fence;
-md.renderer.rules.fence = (tokens, i, options, env, self) => tokens[i].info.trim() === 'mermaid' ? `<pre class="mermaid">${md.utils.escapeHtml(tokens[i].content)}</pre>` : fence(tokens, i, options, env, self);
+md.renderer.rules.fence = (tokens, i, options, env, self) => tokens[i].info.trim() === 'mermaid' ? `<pre class="mermaid" data-source-line="${tokens[i].map[0]}" data-source-end="${tokens[i].map[1]}">${md.utils.escapeHtml(tokens[i].content)}</pre>` : fence(tokens, i, options, env, self);
 let counter = 0;
 export async function renderDocument(source, format, base) {
   const root = document.createElement('article'); root.className = 'prose';

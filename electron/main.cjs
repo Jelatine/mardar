@@ -69,13 +69,14 @@ app.whenReady().then(async () => {
   app.setAboutPanelOptions({ applicationName: 'Mardar', applicationVersion: buildInfo.tag, version: buildInfo.commit.slice(0, 12), copyright: `编译日期：${buildInfo.builtAt}\n提交：${buildInfo.commit}` });
   const create = () => {
     currentPath = null; dirty = false; rendererReady = false;
-    win = new BrowserWindow({ icon: path.join(__dirname, '../build/icon.png'), width: 1440, height: 940, minWidth: 800, minHeight: 600, backgroundColor: '#f7f6f2', webPreferences: { preload: path.join(__dirname, 'preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true } });
+    win = new BrowserWindow({ icon: path.join(__dirname, '../build/icon.png'), titleBarStyle: 'hidden', ...(process.platform === 'darwin' ? {} : { titleBarOverlay: { color: '#fafbf8', symbolColor: '#303b35', height: 48 } }), width: 1440, height: 940, minWidth: 800, minHeight: 600, backgroundColor: '#f7f6f2', webPreferences: { preload: path.join(__dirname, 'preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true } });
     win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
     win.webContents.on('will-navigate', event => event.preventDefault());
     win.on('close', event => { if (dirty && dialog.showMessageBoxSync(win, { type: 'question', buttons: ['继续编辑', '放弃更改并关闭'], defaultId: 0, cancelId: 0, message: '文档尚未保存，确定关闭吗？' }) !== 1) event.preventDefault(); });
     win.loadFile(path.join(__dirname, '../dist/index.html'));
   };
-  Menu.setApplicationMenu(Menu.buildFromTemplate([{ label: 'Mardar', submenu: [{ role: 'about' }, { role: 'quit' }] }, { label: '编辑', submenu: [{ role: 'undo' }, { role: 'redo' }, { type: 'separator' }, { role: 'cut' }, { role: 'copy' }, { role: 'paste' }, { role: 'selectAll' }] }, { label: '视图', submenu: [{ role: 'resetZoom' }, { role: 'zoomIn' }, { role: 'zoomOut' }, { role: 'togglefullscreen' }] }]));
+  Menu.setApplicationMenu(Menu.buildFromTemplate([{ label: 'Mardar', submenu: [{ role: 'about' }, { role: 'quit' }] }, { label: '编辑', submenu: [{ label: '撤销', accelerator: 'CmdOrCtrl+Z', click: () => win.webContents.send('document:history', false) }, { label: '重做', accelerator: 'CmdOrCtrl+Shift+Z', click: () => win.webContents.send('document:history', true) }, { type: 'separator' }, { role: 'cut' }, { role: 'copy' }, { role: 'paste' }, { role: 'selectAll' }] }, { label: '视图', submenu: [{ role: 'resetZoom' }, { role: 'zoomIn' }, { role: 'zoomOut' }, { role: 'togglefullscreen' }] }]));
+  if (process.platform !== 'darwin') Menu.setApplicationMenu(null);
   create(); app.on('activate', () => { if (!BrowserWindow.getAllWindows().length) create(); });
 });
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });

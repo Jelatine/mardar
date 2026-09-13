@@ -6,3 +6,6 @@
 
 /* KaTeX stretchy symbols use oversized SVGs clipped by their own containers. */
 .prose .katex svg{max-width:none;height:inherit;max-height:none}
+
+/* Keep document scrolling inside the editor, including live mode. */
+html,body{height:100%;overflow:hidden}#app{height:100dvh;overflow:hidden}main{min-height:0}.sidebar{min-height:0;overflow:auto;padding-top:48px}.sidebar-hidden .sidebar{display:none}.actions{flex-wrap:wrap;margin:8px 0 16px}.actions button{flex:1;white-space:nowrap}.titlebar{height:48px;flex-shrink:0;justify-content:flex-start;padding:0 16px;-webkit-app-region:drag}.titlebar button{-webkit-app-region:no-drag;padding:7px 10px}.breadcrumb{max-width:none}.toolbar{flex-shrink:0}.panes{overflow:hidden}#live{min-height:0;height:100%;margin:0 auto;overscroll-behavior:contain}#preview{min-height:0;scroll-behavior:auto}.source-active{outline:2px solid #94b49b;outline-offset:4px}body.desktop-mac .titlebar{padding-left:80px}body.desktop-overlay .titlebar{padding-right:150px}@media(max-width:850px){.sidebar{display:flex;width:190px}.toolbar{flex-wrap:wrap}.sidebar-hidden .sidebar{display:none}}

@@ -1,5 +1,6 @@
 const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('desktop', {
+  onHistory: callback => ipcRenderer.on('document:history', (_event, redo) => callback(redo)),
   recent: () => ipcRenderer.invoke('document:recent'),
   openRecent: file => ipcRenderer.invoke('document:open-recent', file),
   dismissPending: file => ipcRenderer.invoke('document:dismiss-pending', file),

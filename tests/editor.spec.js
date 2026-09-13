@@ -13,6 +13,8 @@ test.beforeEach(async ({}, testInfo) => {
   page = await app.firstWindow();
   await expect(page.locator('#editor')).toHaveValue(startup ? '# 冷启动\n' : '');
   await expect(page.locator('#dirty')).toBeEmpty();
+  await expect(page.locator('.panes')).toHaveAttribute('data-view', 'live');
+  await page.locator('button[data-view=split]').click();
 });
 test.afterEach(async () => {
   if (!app) return;
@@ -178,4 +180,43 @@ test('cold launch opens the requested file without a save prompt', async () => {
 test('cleanup handles an application that has already exited', async () => {
   await app.close();
   expect(app.windows()).toHaveLength(0);
+});
+
+test('live document scroll stays contained and history survives paragraph blur', async () => {
+  await page.locator('#editor').fill(Array.from({ length: 100 }, (_, i) => `## Heading ${i}\n\nParagraph ${i}\n`).join('\n'));
+  await page.locator('button[data-view=live]').click();
+  await page.locator('#live h2').first().click();
+  await page.locator('#live textarea').fill('## Changed\n\n');
+  await page.locator('#live textarea').press('Escape');
+  await expect(page.locator('#live h2').first()).toHaveText('Changed');
+  await page.keyboard.press('ControlOrMeta+z');
+  await expect(page.locator('#live h2').first()).toHaveText('Heading 0');
+  await page.keyboard.press('ControlOrMeta+Shift+z');
+  await expect(page.locator('#live h2').first()).toHaveText('Changed');
+  await page.locator('#live').evaluate(el => { el.scrollTop = el.scrollHeight; });
+  expect(await page.evaluate(() => document.documentElement.scrollHeight <= innerHeight)).toBe(true);
+  await expect(page.locator('footer')).toBeInViewport();
+  await expect(page.locator('.toolbar')).toBeInViewport();
+  await page.locator('#toggle-sidebar').click();
+  await expect(page.locator('.sidebar')).toBeHidden();
+  await page.locator('#toggle-sidebar').click();
+  await expect(page.locator('.sidebar')).toBeVisible();
+});
+test('split preview and source locate the same paragraph', async () => {
+  await page.locator('#editor').fill('# First\n\nSecond paragraph\n\n## Third\n');
+  await page.locator('#preview h2').click();
+  expect(await page.locator('#editor').evaluate(el => el.selectionStart)).toBe(27);
+  await page.locator('#editor').evaluate(el => el.setSelectionRange(1, 1));
+  await page.locator('#editor').press('ArrowLeft');
+  await expect(page.locator('#preview h1')).toHaveClass(/source-active/);
+});
+
+test('split scrolling follows in both directions', async () => {
+  await page.locator('#editor').fill(Array.from({ length: 80 }, (_, i) => `## Section ${i}\n\nText ${i} with **formatting**.\n`).join('\n'));
+  await expect(page.locator('#preview h2')).toHaveCount(80);
+  await page.locator('#editor').evaluate(el => { el.scrollTop = el.scrollHeight; });
+  await expect.poll(() => page.locator('#preview').evaluate(el => el.scrollHeight - el.clientHeight - el.scrollTop)).toBeLessThan(2);
+  await page.waitForTimeout(150);
+  await page.locator('#preview').evaluate(el => { el.scrollTop = 0; });
+  await expect.poll(() => page.locator('#editor').evaluate(el => el.scrollTop)).toBe(0);
 });
