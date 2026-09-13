@@ -2,17 +2,23 @@ import { test, expect, _electron as electron } from '@playwright/test';
 import { mkdtemp, writeFile, readFile, copyFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { sample } from '../src/sample.js';
 let app, page, folder;
-test.beforeEach(async () => {
+test.beforeEach(async ({}, testInfo) => {
   folder = await mkdtemp(path.join(tmpdir(), 'mardar-test-'));
-  app = await electron.launch({ executablePath: process.env.MARDAR_APP_PATH, args: [...(process.env.MARDAR_APP_PATH ? [] : ['.']), `--user-data-dir=${folder}/profile`, '--no-sandbox'] });
+  const startup = testInfo.title === 'cold launch opens the requested file without a save prompt';
+  const startupFile = path.join(folder, 'cold.md');
+  if (startup) await writeFile(startupFile, '# 冷启动\r\n');
+  app = await electron.launch({ executablePath: process.env.MARDAR_APP_PATH, args: [...(process.env.MARDAR_APP_PATH ? [] : ['.']), `--user-data-dir=${folder}/profile`, '--no-sandbox', ...(startup ? [startupFile] : [])] });
   page = await app.firstWindow();
-  await expect(page.locator('#preview h1')).toHaveText('让想法，跃然纸上');
+  await expect(page.locator('#editor')).toHaveValue(startup ? '# 冷启动\n' : '');
+  await expect(page.locator('#dirty')).toBeEmpty();
 });
 test.afterEach(async () => { if (app) { await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().forEach(w => w.destroy())); await app.close(); } });
 async function chooseOpen(file) { await app.evaluate(({ dialog }, file) => { dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [file] }); }, file); }
 async function chooseSave(file) { await app.evaluate(({ dialog }, file) => { dialog.showSaveDialog = async () => ({ canceled: false, filePath: file }); }, file); }
 test('renders math, diagram, code and switches reading mode', async () => {
+  await page.locator('#editor').fill(sample);
   await expect(page.locator('#preview .katex').first()).toBeVisible();
   await expect(page.locator('#preview .mermaid svg')).toBeVisible();
   await expect(page.locator('#preview .mermaid svg')).toContainText('捕捉灵感');
@@ -22,6 +28,8 @@ test('renders math, diagram, code and switches reading mode', async () => {
   });
   expect(scriptPosition.scriptY).toBeLessThan(scriptPosition.baseY);
   await expect(page.locator('#preview .hljs-keyword').first()).toBeVisible();
+  const radical = page.locator('#preview .sqrt svg');
+  expect(await radical.evaluate(el => el.getBoundingClientRect().height)).toBeGreaterThan(10);
   await page.locator('button[data-view=read]').click();
   await expect(page.locator('#editor')).toBeHidden();
   await page.locator('button[data-view=split]').click();
@@ -73,12 +81,14 @@ test('live editing preserves Markdown and supports save', async () => {
   const file = path.join(folder, 'live.md'); await chooseSave(file); await page.locator('#save').click();
   await expect.poll(() => readFile(file, 'utf8')).toBe('# 新标题\n\n正文 **粗体**\n');
 });
-test('unsaved edits can cancel new document and recover after restart', async () => {
+test('unsaved edits protect switching but startup ignores legacy drafts', async () => {
   await page.locator('#editor').fill('# 未保存的草稿');
   await page.locator('#new').click(); await expect(page.locator('#confirm')).toBeVisible();
   await page.locator('[data-choice=cancel]').click(); await expect(page.locator('#editor')).toHaveValue('# 未保存的草稿');
-  await page.reload(); await expect(page.locator('#editor')).toHaveValue('# 未保存的草稿');
-  await page.locator('#new').click(); await page.locator('[data-choice=discard]').click(); await expect(page.locator('#editor')).toHaveValue('');
+  await page.evaluate(() => localStorage.setItem('mardar-draft', JSON.stringify({ content: '# 旧草稿', name: '旧文档.md' })));
+  await page.reload(); await expect(page.locator('#editor')).toHaveValue('');
+  await expect(page.locator('#name')).toHaveText('未命名.md');
+  await expect(page.locator('#dirty')).toBeEmpty();
 });
 test('invalid chart is contained and preview recovers', async () => {
   await page.locator('#editor').fill('# 保留正文\n\n```mermaid\nnot-a-valid-diagram !!!\n```');
@@ -115,4 +125,40 @@ test('OS open request protects unsaved edits and opens in the same window', asyn
   await page.locator('[data-choice=discard]').click();
   await expect(page.locator('#preview h1')).toHaveText('系统打开');
   expect(app.windows().length).toBe(1);
+});
+
+test('CRLF files and fully reverted edits stay clean when switching and closing', async () => {
+  const file = path.join(folder, 'windows.md');
+  await writeFile(file, '# Windows\r\n\r\n正文\r\n');
+  await chooseOpen(file); await page.locator('#open').click();
+  const original = '# Windows\n\n正文\n';
+  await expect(page.locator('#editor')).toHaveValue(original);
+  await expect(page.locator('#dirty')).toBeEmpty();
+  await page.locator('#editor').fill(original + '修改');
+  await expect(page.locator('#dirty')).toHaveText('●');
+  await page.locator('#editor').fill(original);
+  await expect(page.locator('#dirty')).toBeEmpty();
+  await page.locator('#new').click();
+  await expect(page.locator('#editor')).toHaveValue('');
+  await page.locator('#editor').pressSequentially('temporary');
+  for (let i = 0; i < 9 && await page.locator('#editor').inputValue(); i++) {
+    await page.locator('#editor').press('ControlOrMeta+z');
+  }
+  await expect(page.locator('#editor')).toHaveValue('');
+  await expect(page.locator('#dirty')).toBeEmpty();
+  await app.evaluate(({ dialog }) => { dialog.showMessageBoxSync = () => { throw new Error('Unexpected save prompt'); }; });
+  await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].close());
+  await expect.poll(() => app.windows().length).toBe(0);
+});
+test('system open immediately after startup does not ask to save', async () => {
+  const file = path.join(folder, 'startup.md'); await writeFile(file, '# 直接打开\r\n');
+  await app.evaluate(({ app }, file) => app.emit('open-file', { preventDefault() {} }, file), file);
+  await expect(page.locator('#preview h1')).toHaveText('直接打开');
+  await expect(page.locator('#confirm')).not.toBeVisible();
+  await expect(page.locator('#dirty')).toBeEmpty();
+});
+
+test('cold launch opens the requested file without a save prompt', async () => {
+  await expect(page.locator('#preview h1')).toHaveText('冷启动');
+  await expect(page.locator('#confirm')).not.toBeVisible();
 });

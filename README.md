@@ -19,7 +19,7 @@ npm start
 
 - 新建、打开、保存及另存 Markdown 源文件，关闭或切换文档时提醒未保存更改。
 - 即时编辑：点击段落编辑 Markdown，离开段落恢复效果；代码块、表格等按完整块编辑，保存保留原始源码。格式工具栏切换到源码分栏编辑。
-- 最近打开的 12 个本地文件（重启保留）；Windows 安装后可从 `.md` / `.markdown` 文件的“打开方式”选择 Mardar，支持冷启动和已运行实例，切换前提示保存。
+- 最近打开的 12 个本地文件（重启保留）；Windows 安装后可从 `.md` / `.markdown` 文件的“打开方式”选择 Mardar，支持冷启动和已运行实例，仅在存在未保存更改时提示保存。
 - About 显示 Git tag 版本、UTC 编译日期和完整提交哈希。构建要求 Git 标签，发布工作流使用对应标签。
 - 双栏实时预览、独立编辑/阅读模式、大纲导航、深色主题、字符统计。
 - Markdown 标题、列表、引用、表格、HTML 片段、代码高亮。
@@ -27,7 +27,7 @@ npm start
 - Mermaid 图表：使用语言名为 `mermaid` 的代码块。
 - 图片工具栏插入、拖入和粘贴；插入的图片使用内嵌数据，随源文件保存。打开的文档支持相对路径图片及 HTTPS 图片。
 - 原生 A4 PDF 导出，包含公式、图表、代码和已加载的图片，隐藏编辑工具栏。
-- 本地恢复最近的编辑草稿；草稿不替代文件保存。
+- 每次启动默认打开空白新文档；通过系统“打开方式”启动时直接打开指定文件。
 - `Ctrl/Cmd+S` 保存、`Ctrl/Cmd+Shift+S` 另存、`Ctrl/Cmd+O` 打开、`Ctrl/Cmd+N` 新建、`Ctrl/Cmd+B/I` 粗体/斜体。
 
 支持 Markdown 内嵌 HTML（例如 `<img src="doc/plan_wall_step1.png" style="zoom:60%;" />`），图片允许安全的缩放和尺寸样式，脚本及页面定位样式会被过滤。外部链接不会在编辑器内导航。数学、图表及高亮资源随应用打包，可离线使用；网络图片需要联网。
@@ -41,7 +41,7 @@ npm run pack
 npm run dist
 ```
 
-`npm test` 运行真实 Electron 集成测试，验证公式、图表、代码、Markdown 读写、内嵌 HTML、图片、草稿保护与 PDF 输出。Linux 无桌面环境时使用 `xvfb-run --auto-servernum npm test`。
+`npm test` 运行真实 Electron 集成测试，验证公式、图表、代码、Markdown 读写、内嵌 HTML、图片、未保存更改保护与 PDF 输出。Linux 无桌面环境时使用 `xvfb-run --auto-servernum npm test`。
 
 完成打包后，使用 `node scripts/test-packaged.mjs` 对当前系统的应用包运行同一组测试。CI 也直接测试打包产物。
 
@@ -74,7 +74,7 @@ git push origin v1.0.0
 
 - `electron/main.cjs`：窗口、受控 IPC、本地文件、PDF。
 - `electron/preload.cjs`：隔离桥接接口。
-- `src/main.js`：界面、编辑、草稿和操作流程。
+- `src/main.js`：界面、编辑和操作流程。
 - `src/render.js`：Markdown、HTML 清理、公式、代码和图表。
 - `tests/editor.spec.js`：真实桌面集成测试。
 

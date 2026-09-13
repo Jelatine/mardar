@@ -1,0 +1,47 @@
+/* Print typography adapted from ../md2pdf/md2pdf.css. */
+@page { size: A4; margin: 15mm 15mm 17mm; }
+@media print {
+  :root { background: #fff !important; }
+  html, body, #app, main, .panes, .preview-pane, #preview {
+    display: block !important; width: 100% !important; height: auto !important;
+    overflow: visible !important; background: #fff !important; color: #1f2937 !important;
+  }
+  .sidebar, header, .toolbar, .editor-pane, .pane-label, footer, dialog, #live { display: none !important; }
+  #preview { padding: 0 !important; }
+  #preview .prose {
+    max-width: none; margin: 0; font-family: "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", "Segoe UI", sans-serif;
+    font-size: 10.6pt; line-height: 1.65; overflow-wrap: anywhere;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  }
+  #preview .prose :is(h1,h2,h3,h4,h5,h6) { color: #102a43; line-height: 1.28; break-after: avoid-page; font-weight: 700; }
+  #preview .prose h1 { margin: 0 0 7mm; padding-bottom: 4mm; border-bottom: 2px solid #2563eb; font-size: 23pt; letter-spacing: .02em; }
+  #preview .prose h2 { margin: 10mm 0 3.5mm; padding: 2.2mm 0 2.2mm 3mm; border-left: 4px solid #2563eb; border-bottom: 1px solid #dbeafe; font-size: 17pt; }
+  #preview .prose h3 { margin: 6mm 0 2.5mm; font-size: 13.2pt; }
+  #preview .prose h4 { margin: 4mm 0 2mm; font-size: 11.5pt; }
+  #preview .prose p { margin: 2.2mm 0; color: #1f2937; orphans: 3; widows: 3; }
+  #preview .prose strong { color: #111827; font-weight: 700; }
+  #preview .prose a { color: #1d4ed8; text-decoration: none; }
+  #preview .prose hr { border: 0; border-top: 1px solid #d1d5db; margin: 7mm 0; }
+  #preview .prose blockquote { margin: 3.5mm 0; padding: 2.5mm 4mm; background: #eff6ff; border-left: 4px solid #60a5fa; border-radius: 0; }
+  #preview .prose blockquote p { color: #334155; font-size: inherit; }
+  #preview .prose blockquote > :first-child { margin-top: 0; }
+  #preview .prose blockquote > :last-child { margin-bottom: 0; }
+  #preview .prose :is(ul,ol) { margin: 2mm 0 3mm; padding-left: 7mm; color: #1f2937; }
+  #preview .prose li { margin: 1mm 0; padding: 0 0 0 .8mm; color: #1f2937; }
+  #preview .prose code { font-family: "SFMono-Regular", Consolas, "Microsoft YaHei", monospace; font-size: .91em; }
+  #preview .prose :not(pre) > code { padding: .12em .32em; color: #9f1239; background: #f1f5f9; border-radius: 3px; }
+  #preview .prose pre { margin: 3mm 0; padding: 3mm 4mm; color: #24292e; background: #f6f8fa; border: 1px solid #d7dde5; border-radius: 6px; line-height: 1.48; white-space: pre-wrap; overflow-wrap: anywhere; overflow: visible; box-decoration-break: clone; }
+  #preview .prose pre code { padding: 0; color: inherit; background: transparent; font-size: 8.8pt; }
+  #preview .prose table { width: 100%; border-collapse: collapse; font-size: 9.2pt; margin: 3mm 0 5mm; }
+  #preview .prose thead { display: table-header-group; }
+  #preview .prose tr { break-inside: avoid; }
+  #preview .prose :is(th,td) { padding: 1.7mm 2mm; border: 1px solid #cbd5e1; vertical-align: top; }
+  #preview .prose th { color: #0f172a; background: #e2e8f0; font-weight: 700; }
+  #preview .prose tbody tr:nth-child(even) td { background: #f8fafc; }
+  #preview .prose :is(img,svg) { max-width: 100%; max-height: 226mm; height: auto; object-fit: contain; break-inside: avoid; }
+  #preview .prose .mermaid { margin: 4mm 0 6mm; padding: 4mm; text-align: center; background: #f8fbff; border: 1px solid #bfdbfe; border-radius: 8px; break-inside: avoid; white-space: normal; }
+  #preview .prose .katex-display { overflow: visible; padding: 2mm 0; break-inside: avoid; }
+}
+@media print {
+  #preview .prose .katex svg { max-width: none; max-height: none; height: inherit; }
+}
