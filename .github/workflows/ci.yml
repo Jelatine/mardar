@@ -16,8 +16,8 @@ jobs:
         os: [macos-latest, windows-latest, ubuntu-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -38,7 +38,7 @@ jobs:
         run: MARDAR_APP_PATH="$(ls "$PWD"/release/*.AppImage)" xvfb-run --auto-servernum npm test
         env:
           APPIMAGE_EXTRACT_AND_RUN: '1'
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: test-results-${{ matrix.os }}

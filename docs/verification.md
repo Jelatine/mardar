@@ -23,11 +23,19 @@ macOS 整包测试：**6 passed**。入口：`node scripts/test-packaged.mjs`。
 
 Linux x64 应用包测试：**6 passed (22.7s)**。在 Debian 12 Docker 容器、Xvfb 和 Rosetta x64 模拟环境中运行，测试期间关闭容器网络。验证了包内的 `release/linux-unpacked/mardar`，包括文件读写、图片、公式、图表与 PDF。Linux 截图及导出 PDF 另行检查。
 
+## GitHub Actions
+
+[CI 运行 34728859976](https://github.com/Jelatine/mardar/actions/runs/34728859976)（2026-09-13，提交 1de3ee4）：
+
+| 平台 | 结果 |
+| --- | --- |
+| windows-latest | NSIS x64 构建；包内应用 **6 passed** |
+| macos-latest | ARM64 DMG/ZIP 构建；包内应用 **6 passed** |
+| ubuntu-latest | x64 AppImage 构建；包内应用 **6 passed**，AppImage 启动器 **6 passed** |
+
 ## 待验证
 
-- Linux AppImage 外层启动器：Rosetta 容器返回执行格式错误，未能验证外层启动器；包内 Linux 应用已通过上述测试。还需在原生 Linux x64 环境确认 AppImage 启动。
-- Windows：安装程序已构建，尚未取得 Windows 运行环境。原生系统安装、运行测试待执行。
-- GitHub Actions 已配置三系统打包后测试，并在 Linux 增加 AppImage 启动器测试；当前目录未连接远程仓库，尚未触发工作流。
+- Windows：安装程序的交互式安装流程未自动化测试（CI 测试的是解包后的应用）。
 
 ## 分发文件
 
