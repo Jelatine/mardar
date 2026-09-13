@@ -3,6 +3,7 @@ import { mkdtemp, writeFile, readFile, copyFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { sample } from '../src/sample.js';
+import { formulaTemplates, chartTemplates } from '../src/templates.js';
 let app, page, folder;
 test.beforeEach(async ({}, testInfo) => {
   folder = await mkdtemp(path.join(tmpdir(), 'mardar-test-'));
@@ -117,7 +118,7 @@ test('new document embeds selected image and handles save cancellation', async (
   const image = path.join(folder, 'picture.svg');
   await writeFile(image, '<svg xmlns="http://www.w3.org/2000/svg" width="70" height="40"><rect width="70" height="40" fill="blue"/></svg>');
   await page.locator('#editor').press('ControlOrMeta+End');
-  await chooseOpen(image); await page.locator('#image').click();
+  await chooseOpen(image); await page.locator('#image').click(); await page.getByRole('menuitem', { name: 'Markdown 图片', exact: true }).click();
   await expect(page.locator('#editor')).toHaveValue(/data:image\/svg\+xml;base64,/);
   await expect.poll(() => page.locator('#preview img').evaluate(img => img.naturalWidth)).toBe(70);
   await app.evaluate(({ dialog }) => { dialog.showSaveDialog = async () => ({ canceled: true }); });
@@ -219,4 +220,102 @@ test('split scrolling follows in both directions', async () => {
   await page.waitForTimeout(150);
   await page.locator('#preview').evaluate(el => { el.scrollTop = 0; });
   await expect.poll(() => page.locator('#editor').evaluate(el => el.scrollTop)).toBe(0);
+});
+
+test('continuous live typing undoes as a group with pause and paragraph boundaries', async () => {
+  await page.locator('button[data-view=live]').click();
+  await page.locator('.live-block').click();
+  await page.locator('#live textarea').pressSequentially('first phrase');
+  await page.waitForTimeout(1000);
+  await page.locator('#live textarea').pressSequentially(' second phrase');
+  await page.locator('#live textarea').press('Escape');
+  await page.locator('#undo').click();
+  await expect(page.locator('#editor')).toHaveValue('first phrase');
+  await page.locator('#undo').click();
+  await expect(page.locator('#editor')).toHaveValue('');
+  await page.locator('#redo').click();
+  await expect(page.locator('#editor')).toHaveValue('first phrase');
+  await page.locator('.live-block').click();
+  await page.locator('#live textarea').pressSequentially('replacement');
+  await expect(page.locator('#redo')).toBeDisabled();
+});
+test('insertion menus offer headings, languages, formulas, charts and HTML images', async () => {
+  await page.locator('#heading').click();
+  await page.getByRole('menuitem', { name: 'H3 · 3 级标题', exact: true }).click();
+  await expect(page.locator('#editor')).toHaveValue('### ');
+  await page.locator('#heading').click();
+  await page.getByRole('menuitem', { name: 'H2 · 2 级标题', exact: true }).click();
+  await expect(page.locator('#editor')).toHaveValue('## ');
+  await page.locator('#code').click();
+  await page.getByRole('menuitem', { name: 'python', exact: true }).click();
+  await expect(page.locator('#editor')).toHaveValue(/```python/);
+  await page.locator('#math').click();
+  await page.getByRole('menuitem', { name: '矩阵', exact: true }).click();
+  await expect(page.locator('#preview .katex')).toHaveCount(1);
+  await page.locator('#chart').click();
+  await page.getByRole('menuitem', { name: '时序图', exact: true }).click();
+  await expect(page.locator('#preview .mermaid svg')).toBeVisible();
+  const image = path.join(folder, 'html.svg');
+  await writeFile(image, '<svg xmlns="http://www.w3.org/2000/svg" width="70" height="40"><rect width="70" height="40" fill="blue"/></svg>');
+  await chooseOpen(image); await page.locator('#image').click();
+  await page.getByRole('menuitem', { name: 'HTML 图片（可调整宽度）', exact: true }).click();
+  await expect(page.locator('#editor')).toHaveValue(/<img src="data:image/);
+  await expect.poll(() => page.locator('#preview img').evaluate(el => el.naturalWidth)).toBe(70);
+});
+test('native title controls follow theme and PDF canvas stays white', async () => {
+  await app.evaluate(({ BrowserWindow }) => {
+    const win = BrowserWindow.getAllWindows()[0];
+    if (!win.setTitleBarOverlay) return;
+    const original = win.setTitleBarOverlay.bind(win);
+    win.setTitleBarOverlay = options => { globalThis.lastOverlay = options; return original(options); };
+  });
+  await page.locator('#theme').click();
+  await expect(page.locator('body')).toHaveClass(/dark/);
+  expect(await app.evaluate(({ nativeTheme }) => nativeTheme.themeSource)).toBe('dark');
+  if (process.platform !== 'darwin') expect(await app.evaluate(() => globalThis.lastOverlay.color)).toBe('#202820');
+  await page.locator('#editor').fill('# White page\n\nBody text.');
+  const pdf = path.join(folder, 'dark-theme.pdf'); await chooseSave(pdf); await page.locator('#pdf').click();
+  await expect(page.locator('#status')).toContainText('PDF 已导出');
+  await copyFile(pdf, 'test-results/dark-theme.pdf');
+  expect(await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].getBackgroundColor())).toMatch(/#(?:ff)?ffffff/i);
+  await page.locator('#theme').click();
+  expect(await app.evaluate(({ nativeTheme }) => nativeTheme.themeSource)).toBe('light');
+  if (process.platform !== 'darwin') expect(await app.evaluate(() => globalThis.lastOverlay.color)).toBe('#ffffff');
+  await expect(page.locator('.active-doc')).toHaveCount(0);
+  await expect(page.locator('.sidebar-footer #about')).toBeVisible();
+  await page.screenshot({ path: 'test-results/toolbar-light.png', animations: 'disabled' });
+  await page.locator('#theme').click();
+  await page.locator('#math').click();
+  await page.screenshot({ path: 'test-results/toolbar-dark.png', animations: 'disabled' });
+});
+
+test('all built-in chart and formula templates render without errors', async () => {
+  for (const [label] of chartTemplates) {
+    const previousId = await page.locator('#preview .mermaid svg').evaluateAll(nodes => nodes[0]?.id);
+    await page.locator('#editor').fill('');
+    await page.locator('#chart').click();
+    await page.getByRole('menuitem', { name: label, exact: true }).click();
+    await expect(page.locator('#preview .mermaid svg')).toBeVisible();
+    if (previousId) await expect(page.locator('#preview .mermaid svg')).not.toHaveAttribute('id', previousId);
+    await expect(page.locator('#preview .diagram-error')).toHaveCount(0);
+  }
+  for (const [label, formula] of formulaTemplates) {
+    await page.locator('#editor').fill('');
+    await page.locator('#math').click();
+    await page.getByRole('menuitem', { name: label, exact: true }).click();
+    await expect(page.locator('#preview .katex')).toHaveCount(1);
+    await expect(page.locator('#preview annotation')).toHaveText(formula);
+    await expect(page.locator('#preview .katex-error')).toHaveCount(0);
+  }
+});
+test('live insertion preserves selected text and current editing mode', async () => {
+  await page.locator('#editor').fill('first\n\nsecond paragraph');
+  await page.locator('button[data-view=live]').click();
+  await page.locator('.live-block').last().click();
+  await page.locator('#live textarea').selectText();
+  await page.locator('[data-wrap="**"]').click();
+  await expect(page.locator('.panes')).toHaveAttribute('data-view', 'live');
+  await expect(page.locator('#editor')).toHaveValue('first\n\n**second paragraph**');
+  await page.locator('#undo').click();
+  await expect(page.locator('#editor')).toHaveValue('first\n\nsecond paragraph');
 });

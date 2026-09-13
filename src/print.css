@@ -1,7 +1,9 @@
 /* Print typography adapted from ../md2pdf/md2pdf.css. */
-@page { size: A4; margin: 15mm 15mm 17mm; }
+@page { size: A4; margin: 15mm 15mm 17mm; background: #fff; }
 @media print {
-  :root { background: #fff !important; }
+  :root { background: #fff !important; color-scheme: light !important; --bg: #fff; }
+  .source-active { outline: none !important; }
+  .insert-menu { display: none !important; }
   html, body, #app, main, .panes, .preview-pane, #preview {
     display: block !important; width: 100% !important; height: auto !important;
     overflow: visible !important; background: #fff !important; color: #1f2937 !important;
