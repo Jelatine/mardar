@@ -18,3 +18,16 @@ html,body{height:100%;overflow:hidden}#app{height:100dvh;overflow:hidden}main{mi
 :root{color-scheme:light}
 .dark{color-scheme:dark}
 .dark .prose :not(pre)>code{background:#364330;color:#e4eddd}
+
+/* Live editing: the active paragraph turns into its Markdown source in place. */
+#live{cursor:text}.live-block.editing{border-color:var(--accent)}
+.live-block textarea{display:block;width:100%;min-height:0;margin:12px 0;padding:0;overflow:hidden;background:transparent;color:#4c594e;font:14px/1.9 Inter,-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif}
+.live-block textarea.source-code{font:13px/1.8 "SFMono-Regular",Consolas,"Liberation Mono",monospace}
+.live-block textarea:focus-visible{outline:none}.dark .live-block textarea{color:#d9e2d4}
+textarea::placeholder,.live-placeholder{color:var(--muted)}.live-placeholder{margin:12px 0;font-size:14px;line-height:1.9}
+
+/* About and updates. */
+dialog.about{width:min(460px,calc(100vw - 40px))}.about-head{display:flex;align-items:center;gap:14px}.about-head img{width:52px;height:52px}.about-head h2{margin:0;font-size:20px}.about-head p{margin:2px 0 0;color:var(--muted);font-size:13px}
+.about dl{display:grid;grid-template-columns:auto 1fr;gap:8px 16px;margin:20px 0 0;font-size:13px}.about dt{color:var(--muted)}.about dd{margin:0;overflow-wrap:anywhere}.about code{font-size:12px}.about a{color:var(--accent)}
+.update-status{min-height:20px;margin:18px 0 8px;font-size:13px}.about>div button{font-size:13px;border:1px solid var(--line)}.about progress{width:100%;accent-color:var(--accent)}
+#update-notice{margin-right:15px;padding:2px 8px;font-size:10px;color:#fff;background:var(--accent)}#update-notice:hover{background:#26583f}

@@ -4,13 +4,14 @@ import 'highlight.js/styles/github.css';
 import './print.css';
 import { renderDocument, sourceBlocks } from './render';
 import { formulaTemplates, chartTemplates } from './templates';
+import appIcon from '../build/icon.svg';
 const api = window.desktop;
 if (api) document.body.classList.add(/Mac/.test(navigator.platform) ? 'desktop-mac' : 'desktop-overlay');
 const $ = s => document.querySelector(s);
 let name = '未命名.md', base = '', saved = '', format = 'markdown', version = 0, rendering = Promise.resolve(), timer;
 // Older versions persisted drafts; every launch now starts with a clean document.
 try { localStorage.removeItem('mardar-draft'); } catch {}
-$('#app').innerHTML = `<aside class="sidebar"><button class="new" id="new">＋ 新建文档 <kbd>⌘ N</kbd></button><button class="open" id="open">▱ 打开本地文件</button><details id="recent"><summary>最近打开</summary><div id="recent-list"></div></details><div class="actions"><button id="save">保存</button><button id="save-as">另存为</button><button class="primary" id="pdf">↓ 导出 PDF</button></div><div class="outline-header">文档大纲 <span>≡</span></div><nav id="outline"></nav><div class="sidebar-footer"><span class="online"></span> 本地优先 · 自由创作<button id="about">关于 Mardar</button></div></aside><main><header class="titlebar"><button id="toggle-sidebar" title="隐藏左侧工具栏" aria-label="隐藏左侧工具栏" aria-expanded="true">☰</button><div class="breadcrumb"><b id="name"></b><i id="dirty" aria-label="未保存"></i></div></header><section class="toolbar"><div class="format-tools"><button id="undo" title="撤销">↶</button><button id="redo" title="重做">↷</button><span class="divider"></span><button data-wrap="**" title="粗体">B</button><button data-wrap="*" title="斜体"><i>I</i></button><button id="heading" title="标题">H ▾</button><span class="divider"></span><button data-prefix="> " title="引用">❞</button><button data-prefix="- " title="列表">☷</button><button id="link" title="插入链接">↗</button><button id="image" title="插入图片">▧ ▾</button><button id="code" title="代码块">&lt;/&gt; ▾</button><button id="math" title="数学公式">ƒx ▾</button><button id="chart" title="Mermaid 图表">◇ ▾</button></div><div class="view-tools"><button class="selected" data-view="live">即时编辑</button><button data-view="edit">编辑</button><button data-view="split">分栏</button><button data-view="read">阅读</button><button id="theme" title="切换深色主题">◐</button></div></section><section class="panes" data-view="live"><div id="live" class="prose"></div><div class="editor-pane"><div class="pane-label">源文档 <span>纯粹书写，自由表达</span></div><textarea id="editor" spellcheck="false" aria-label="文档编辑器"></textarea></div><div class="preview-pane"><div class="pane-label">实时预览 <span>✦ 所见即所得</span></div><div id="preview"></div></div></section><footer><span id="status">准备就绪</span><span><span id="count"></span><span class="footer-divider">|</span>UTF-8<span class="footer-divider">|</span><span id="position">行 1，列 1</span></span></footer></main><input type="file" id="file" accept=".md,.markdown" hidden><input type="file" id="image-file" accept="image/*" hidden><dialog id="confirm"><h2>保存当前更改？</h2><p>离开当前文档前，可以保存你的写作内容。</p><div><button data-choice="cancel">取消</button><button data-choice="discard">不保存</button><button class="primary" data-choice="save">保存</button></div></dialog>`;
+$('#app').innerHTML = `<aside class="sidebar"><button class="new" id="new">＋ 新建文档 <kbd>⌘ N</kbd></button><button class="open" id="open">▱ 打开本地文件</button><details id="recent"><summary>最近打开</summary><div id="recent-list"></div></details><div class="actions"><button id="save">保存</button><button id="save-as">另存为</button><button class="primary" id="pdf">↓ 导出 PDF</button></div><div class="outline-header">文档大纲 <span>≡</span></div><nav id="outline"></nav><div class="sidebar-footer"><span class="online"></span> 本地优先 · 自由创作<button id="about">关于 Mardar</button></div></aside><main><header class="titlebar"><button id="toggle-sidebar" title="隐藏左侧工具栏" aria-label="隐藏左侧工具栏" aria-expanded="true">☰</button><div class="breadcrumb"><b id="name"></b><i id="dirty" aria-label="未保存"></i></div></header><section class="toolbar"><div class="format-tools"><button id="undo" title="撤销">↶</button><button id="redo" title="重做">↷</button><span class="divider"></span><button data-wrap="**" title="粗体">B</button><button data-wrap="*" title="斜体"><i>I</i></button><button id="heading" title="标题">H ▾</button><span class="divider"></span><button data-prefix="> " title="引用">❞</button><button data-prefix="- " title="列表">☷</button><button id="link" title="插入链接">↗</button><button id="image" title="插入图片">▧ ▾</button><button id="code" title="代码块">&lt;/&gt; ▾</button><button id="math" title="数学公式">ƒx ▾</button><button id="chart" title="Mermaid 图表">◇ ▾</button></div><div class="view-tools"><button class="selected" data-view="live">即时编辑</button><button data-view="edit">编辑</button><button data-view="split">分栏</button><button data-view="read">阅读</button><button id="theme" title="切换深色主题">◐</button></div></section><section class="panes" data-view="live"><div id="live" class="prose"></div><div class="editor-pane"><div class="pane-label">源文档 <span>纯粹书写，自由表达</span></div><textarea id="editor" spellcheck="false" aria-label="文档编辑器"></textarea></div><div class="preview-pane"><div class="pane-label">实时预览 <span>✦ 所见即所得</span></div><div id="preview"></div></div></section><footer><span id="status">准备就绪</span><span><button id="update-notice" hidden></button><span id="count"></span><span class="footer-divider">|</span>UTF-8<span class="footer-divider">|</span><span id="position">行 1，列 1</span></span></footer></main><input type="file" id="file" accept=".md,.markdown" hidden><input type="file" id="image-file" accept="image/*" hidden><dialog id="confirm"><h2>保存当前更改？</h2><p>离开当前文档前，可以保存你的写作内容。</p><div><button data-choice="cancel">取消</button><button data-choice="discard">不保存</button><button class="primary" data-choice="save">保存</button></div></dialog>`;
 if (!/Mac/.test(navigator.platform)) $('.new kbd').textContent = 'Ctrl N';
 // Native title controls sit above the DOM backdrop; keep their colors in sync.
 if (api) {
@@ -20,7 +21,7 @@ if (api) {
     if (open !== modalOpen) { modalOpen = open; api.modal(open); }
   }).observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['open'] });
 }
-const editor = $('#editor'); editor.value = '';
+const editor = $('#editor'); editor.value = ''; editor.placeholder = '开始写作…';
 
 function status(text) { $('#status').textContent = text; }
 function metadata() { $('#name').textContent = name; $('#dirty').textContent = editor.value !== saved ? '●' : ''; document.title = `${editor.value !== saved ? '● ' : ''}${name} · Mardar`; api?.dirty(editor.value !== saved); $('#count').textContent = `${editor.value.replace(/\s/g, '').length.toLocaleString()} 字符`; }
@@ -47,7 +48,7 @@ function insert(text, suffix = '', replaceSelection = false) {
   const start = editor.selectionStart, end = editor.selectionEnd;
   editor.setRangeText(text + (replaceSelection ? '' : editor.value.slice(start, end)) + suffix, start, end, 'end');
   changed();
-  if ($('.panes').dataset.view === 'live') renderLive(); else editor.focus();
+  if ($('.panes').dataset.view === 'live') renderLive(editor.selectionEnd); else editor.focus();
 }
 function insertHeading(level) {
   const start = editor.value.lastIndexOf('\n', editor.selectionStart - 1) + 1;
@@ -59,7 +60,7 @@ function insertHeading(level) {
 document.querySelectorAll('[data-wrap]').forEach(b => b.onclick = () => insert(b.dataset.wrap, b.dataset.wrap));
 document.querySelectorAll('[data-prefix]').forEach(b => b.onclick = () => insert(b.dataset.prefix));
 $('#link').onclick = () => insert('[', '](https://example.com)');
-document.querySelectorAll('[data-view]').forEach(b => { if (b.tagName !== 'BUTTON') return; b.onclick = () => { breakHistoryGroup(); $('.panes').dataset.view = b.dataset.view; if (b.dataset.view === 'live') renderLive(); document.querySelectorAll('.view-tools [data-view]').forEach(x => x.classList.toggle('selected', x === b)); }; });
+document.querySelectorAll('[data-view]').forEach(b => { if (b.tagName !== 'BUTTON') return; b.onclick = () => { breakHistoryGroup(); $('.panes').dataset.view = b.dataset.view; if (b.dataset.view === 'live') renderLive(editor.value.trim() ? undefined : 0); document.querySelectorAll('.view-tools [data-view]').forEach(x => x.classList.toggle('selected', x === b)); }; });
 $('#toggle-sidebar').onclick = () => { const hidden = $('#app').classList.toggle('sidebar-hidden'); $('#toggle-sidebar').setAttribute('aria-expanded', String(!hidden)); $('#toggle-sidebar').title = $('#toggle-sidebar').ariaLabel = hidden ? '展开左侧工具栏' : '隐藏左侧工具栏'; };
 $('#theme').onclick = async () => { const dark = document.body.classList.toggle('dark'); await api?.theme(dark); };
 $('#undo').onclick = () => undoRedo(); $('#redo').onclick = () => undoRedo(true);
@@ -71,9 +72,9 @@ document.addEventListener('pointerdown', breakHistoryGroup);
 function download(content, filename, type) { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([content], { type })); a.download = filename; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000); }
 async function save(saveAs = false) { breakHistoryGroup(); try { const content = editor.value; const result = api ? await api.save(content, saveAs, format) : { name }; if (!result) return false; if (!api) download(content, name, 'text/plain;charset=utf-8'); name = result.name; base = result.base || ''; saved = content; metadata(); await render(); await refreshRecent(); status('文档已保存'); return true; } catch (e) { status(`保存失败：${e.message}`); return false; } }
 async function mayLeave() { if (editor.value === saved) return true; const choice = await new Promise(resolve => { const d = $('#confirm'); d.showModal(); d.oncancel = e => { e.preventDefault(); d.close(); resolve('cancel'); }; d.querySelectorAll('button').forEach(b => b.onclick = () => { d.close(); resolve(b.dataset.choice); }); }); return choice === 'discard' || (choice === 'save' && await save()); }
-async function load(doc) { breakHistoryGroup(); editor.value = doc.content; history = [editor.value]; historyIndex = 0; saved = editor.value; name = doc.name; base = doc.base || ''; format = 'markdown';  changed(); await render(); if ($('.panes').dataset.view === 'live') await renderLive(); await refreshRecent(); }
+async function load(doc) { breakHistoryGroup(); editor.value = doc.content; history = [editor.value]; historyIndex = 0; saved = editor.value; name = doc.name; base = doc.base || ''; format = 'markdown';  changed(); await render(); if ($('.panes').dataset.view === 'live') await renderLive(editor.value.trim() ? undefined : 0); await refreshRecent(); }
 $('#save').onclick = () => save(); $('#save-as').onclick = () => save(true);
-$('#new').onclick = async () => { if (!await mayLeave()) return; await api?.newDocument(); await load({ content: '', name: '未命名.md', format: 'markdown' }); editor.focus(); };
+$('#new').onclick = async () => { if (!await mayLeave()) return; await api?.newDocument(); await load({ content: '', name: '未命名.md', format: 'markdown' }); if ($('.panes').dataset.view !== 'live') editor.focus(); };
 $('#open').onclick = async () => { if (!await mayLeave()) return; try { if (api) { const doc = await api.open(); if (doc) await load(doc); } else $('#file').click(); } catch (e) { status(`打开失败：${e.message}`); } };
 $('#file').onchange = async e => { const f = e.target.files[0]; if (f) await load({ content: await f.text(), name: f.name, format: 'markdown' }); e.target.value = ''; };
 let imageFormat = 'markdown';
@@ -93,7 +94,44 @@ async function refreshRecent() {
   const list = $('#recent-list'); list.replaceChildren();
   for (const file of await api.recent()) { const b = document.createElement('button'); b.textContent = file.split(/[\\/]/).pop(); b.title = file; b.onclick = async () => { if (!await mayLeave()) return; try { await load(await api.openRecent(file)); } catch (e) { status(`打开失败：${e.message}`); } }; list.append(b); }
 }
-$('#about').onclick = async () => { const info = api ? await api.about() : { tag: '开发预览', builtAt: '—', commit: '—' }; const d = document.createElement('dialog'); const text = document.createElement('p'); text.style.whiteSpace = 'pre-line'; text.textContent = `Mardar · Markdown 编辑器\n版本：${info.tag}\n编译日期：${info.builtAt}\n提交哈希：${info.commit}`; const close = document.createElement('button'); close.textContent = '关闭'; close.onclick = () => { d.close(); d.remove(); }; d.append(text, close); document.body.append(d); d.showModal(); };
+let updateInfo = null;
+function openExternal(url) { if (api) api.openExternal(url).catch(e => status(e.message)); else window.open(url, '_blank', 'noopener'); }
+function noticeUpdate() { const b = $('#update-notice'); b.hidden = !updateInfo; b.textContent = updateInfo ? `新版本 ${updateInfo.tag} 可用` : ''; }
+async function showAbout(checkNow = false) {
+  document.querySelector('dialog.about')?.close();
+  const info = api ? await api.about() : { tag: '开发预览', builtAt: '—', commit: '—', author: 'Jelatine', repository: 'https://github.com/Jelatine/mardar' };
+  const d = document.createElement('dialog'); d.className = 'about';
+  d.innerHTML = `<div class="about-head"><img src="${appIcon}" alt=""><div><h2>Mardar</h2><p>跨平台 Markdown 写作与阅读工具</p></div></div><dl><dt>版本</dt><dd data-info="tag"></dd><dt>作者</dt><dd data-info="author"></dd><dt>仓库</dt><dd><a></a></dd><dt>编译日期</dt><dd data-info="builtAt"></dd><dt>提交哈希</dt><dd><code data-info="commit"></code></dd></dl><p class="update-status" role="status"></p><progress max="1" hidden></progress><div><button data-action="check">检查更新</button><button class="primary" data-action="update" hidden></button><button data-action="close">关闭</button></div>`;
+  d.querySelectorAll('[data-info]').forEach(el => { el.textContent = info[el.dataset.info] || '—'; });
+  const link = d.querySelector('a'); link.href = info.repository; link.textContent = info.repository.replace(/^https:\/\//, ''); link.onclick = e => { e.preventDefault(); openExternal(info.repository); };
+  const note = d.querySelector('.update-status'), progress = d.querySelector('progress'), check = d.querySelector('[data-action=check]'), action = d.querySelector('[data-action=update]');
+  d.querySelector('[data-action=close]').onclick = () => d.close(); d.onclose = () => d.remove();
+  check.onclick = async () => {
+    if (!api) { openExternal(`${info.repository}/releases/latest`); return; }
+    check.disabled = true; action.hidden = progress.hidden = true; note.textContent = '正在检查更新…';
+    try {
+      const result = await api.checkUpdate(); updateInfo = result.available ? result : null; noticeUpdate();
+      note.textContent = result.available ? `发现新版本 ${result.tag}（当前 ${info.tag}）` : `当前已是最新版本（${info.tag}）`;
+      action.hidden = !result.available; action.textContent = result.installable ? '下载并安装' : '前往下载';
+    } catch (e) { note.textContent = `检查更新失败：${e.message}`; } finally { check.disabled = false; }
+  };
+  action.onclick = async () => {
+    if (!updateInfo?.installable) { openExternal(updateInfo?.url || `${info.repository}/releases/latest`); return; }
+    check.disabled = action.disabled = true; progress.hidden = false; progress.removeAttribute('value'); note.textContent = `正在下载 ${updateInfo.tag}…`;
+    try {
+      await api.downloadUpdate(); progress.value = 1; note.textContent = '下载完成，已通过 SHA-256 校验。';
+      if (!await mayLeave()) { note.textContent = '更新已下载，处理好当前文档后可继续安装。'; action.textContent = '安装并重启'; return; }
+      note.textContent = '正在安装，Mardar 即将重启…'; await api.installUpdate();
+    } catch (e) { note.textContent = `更新失败：${e.message}`; progress.hidden = true; } finally { check.disabled = action.disabled = false; }
+  };
+  document.body.append(d); d.showModal();
+  if (checkNow) check.click();
+}
+$('#about').onclick = () => showAbout();
+$('#update-notice').onclick = () => showAbout(true);
+api?.onShowAbout?.(checkNow => showAbout(checkNow));
+api?.onUpdateAvailable?.(result => { updateInfo = result; noticeUpdate(); });
+api?.onUpdateProgress?.(value => { const bar = document.querySelector('dialog.about progress'); if (!bar) return; bar.value = value; bar.parentElement.querySelector('.update-status').textContent = `正在下载 ${Math.round(value * 100)}%`; });
 function undoRedo(redo = false) {
   breakHistoryGroup();
   const next = historyIndex + (redo ? 1 : -1);
@@ -104,32 +142,101 @@ function undoRedo(redo = false) {
 }
 editor.addEventListener('beforeinput', e => { if (e.inputType === 'historyUndo' || e.inputType === 'historyRedo') { e.preventDefault(); undoRedo(e.inputType === 'historyRedo'); } });
 api?.onHistory?.(undoRedo);
-let liveGeneration = 0;
-async function renderLive() {
-  const generation = ++liveGeneration, host = $('#live'), scroll = host.scrollTop; host.replaceChildren();
-  const blocks = sourceBlocks(editor.value);
-  for (const block of blocks) {
-    const item = document.createElement('div'); item.className = 'live-block'; item.tabIndex = 0;
-    item.append(await renderDocument(block.text, 'markdown', base));
-    if (generation !== liveGeneration) return;
-    const activate = () => {
-      if (item.querySelector('textarea')) return;
-      const input = document.createElement('textarea'); input.value = block.text; input.setAttribute('aria-label', '当前段落 Markdown');
-      item.replaceChildren(input); input.style.height = `${Math.max(100, input.scrollHeight)}px`; input.focus(); editor.setSelectionRange(block.start, block.start);
-      input.onbeforeinput = e => { if (e.inputType === 'historyUndo' || e.inputType === 'historyRedo') { e.preventDefault(); undoRedo(e.inputType === 'historyRedo'); } };
-      input.onselect = input.onkeyup = input.onclick = () => { editor.setSelectionRange(block.start + input.selectionStart, block.start + input.selectionEnd); };
-      input.oninput = event => { editor.value = editor.value.slice(0, block.start) + input.value + editor.value.slice(block.start + block.text.length); block.text = input.value; editor.setSelectionRange(block.start + input.selectionStart, block.start + input.selectionEnd); changed(event); input.style.height = 'auto'; input.style.height = `${input.scrollHeight}px`; };
-      input.onblur = () => { breakHistoryGroup(); renderLive(); };
-      input.onkeydown = e => { if (e.key === 'Escape') input.blur(); };
-    };
-    item.onclick = activate; item.onkeydown = e => { if (e.target === item && e.key === 'Enter') activate(); }; host.append(item); host.scrollTop = scroll;
+let liveGeneration = 0, liveBlocks = [], liveCache = new Map();
+const livePlaceholder = '开始写作… 支持 Markdown，例如 # 标题、**粗体**、- 列表';
+const contentEnd = text => text.replace(/\s+$/, '').length;
+// Re-render the live document, reusing blocks whose source is unchanged, then
+// optionally continue editing at a source offset.
+async function renderLive(focus) {
+  const generation = ++liveGeneration, host = $('#live'), entries = [], cache = new Map(), empty = !editor.value.trim();
+  for (const block of sourceBlocks(editor.value)) {
+    const key = `${base}\n${block.text}`;
+    let view = liveCache.get(key)?.pop();
+    if (!view && empty) { view = document.createElement('p'); view.className = 'live-placeholder'; view.textContent = livePlaceholder; }
+    if (!view) { view = await renderDocument(block.text, 'markdown', base); if (generation !== liveGeneration) return; }
+    cache.set(key, [...(cache.get(key) || []), view]);
+    const item = document.createElement('div'); item.className = 'live-block'; item.tabIndex = 0; item.append(view);
+    const entry = { block, item, view };
+    item.onkeydown = e => { if (e.target === item && e.key === 'Enter') { e.preventDefault(); activateLive(entry, contentEnd(block.text)); } };
+    entries.push(entry);
   }
+  if (generation !== liveGeneration) return;
+  const scroll = host.scrollTop; liveCache = cache; liveBlocks = entries;
+  host.replaceChildren(...entries.map(entry => entry.item)); host.scrollTop = scroll;
+  if (focus != null) { const entry = entries.findLast(x => x.block.start <= focus) || entries[0]; activateLive(entry, focus - entry.block.start); }
 }
+function activateLive(entry, caret) {
+  const { block, item } = entry, host = $('#live');
+  if (item.querySelector('textarea')) return;
+  // Edit only the paragraph's content; its trailing blank-line separator stays in the source.
+  const separator = block.text.slice(contentEnd(block.text));
+  const input = document.createElement('textarea'); input.value = block.text.slice(0, block.text.length - separator.length); input.placeholder = livePlaceholder; input.rows = 1; input.setAttribute('aria-label', '当前段落 Markdown');
+  if (/^\s*(?:```|~~~|\$\$|<|\|)/.test(block.text)) input.classList.add('source-code');
+  item.classList.add('editing'); item.replaceChildren(input);
+  const fit = () => { const scroll = host.scrollTop; input.style.height = 'auto'; input.style.height = `${input.scrollHeight}px`; host.scrollTop = scroll; };
+  const sync = () => editor.setSelectionRange(block.start + input.selectionStart, block.start + input.selectionEnd);
+  // Leave editing and continue at another source offset (offsets survive the re-render).
+  const move = offset => { input.onblur = null; breakHistoryGroup(); renderLive(offset); };
+  fit(); caret = Math.max(0, Math.min(caret, input.value.length));
+  input.focus({ preventScroll: true }); input.setSelectionRange(caret, caret); sync(); item.scrollIntoView({ block: 'nearest' });
+  input.onbeforeinput = e => { if (e.inputType === 'historyUndo' || e.inputType === 'historyRedo') { e.preventDefault(); undoRedo(e.inputType === 'historyRedo'); } };
+  input.onselect = input.onkeyup = input.onclick = sync;
+  input.oninput = event => {
+    const text = input.value + separator, delta = text.length - block.text.length;
+    editor.value = editor.value.slice(0, block.start) + text + editor.value.slice(block.start + block.text.length);
+    for (const other of liveBlocks) if (other.block.start > block.start) other.block.start += delta;
+    block.text = text; sync(); changed(event); fit();
+  };
+  // Switching windows keeps the paragraph open; only a real focus change renders it.
+  input.onblur = () => { if (document.activeElement === input || !input.isConnected) return; breakHistoryGroup(); renderLive(); };
+  input.onkeydown = e => {
+    if (e.key === 'Escape') { input.blur(); return; }
+    if (e.isComposing || e.shiftKey || e.altKey || e.metaKey || e.ctrlKey || input.selectionStart !== input.selectionEnd) return;
+    const index = liveBlocks.indexOf(entry), at = input.selectionStart, previous = liveBlocks[index - 1]?.block, next = liveBlocks[index + 1]?.block;
+    if (at === 0 && previous && (e.key === 'ArrowUp' || e.key === 'ArrowLeft')) { e.preventDefault(); move(previous.start + contentEnd(previous.text)); }
+    else if (next && ((e.key === 'ArrowDown' && !input.value.slice(at).trim()) || (e.key === 'ArrowRight' && at === input.value.length))) { e.preventDefault(); move(next.start); }
+    else if (at === 0 && previous && e.key === 'Backspace') {
+      // Join with the previous block by deleting the separator before this paragraph.
+      e.preventDefault(); breakHistoryGroup(); input.onblur = null;
+      editor.value = editor.value.slice(0, block.start - 1) + editor.value.slice(block.start); changed(); breakHistoryGroup(); renderLive(block.start - 1);
+    }
+  };
+}
+// Map a point in a rendered block to its Markdown source by matching visible characters.
+function caretFromPoint({ block, view }, x, y) {
+  const text = block.text, position = document.caretPositionFromPoint?.(x, y), range = position ? null : document.caretRangeFromPoint?.(x, y);
+  const node = position?.offsetNode ?? range?.startContainer, offset = position?.offset ?? range?.startOffset;
+  if (!node || !view.contains(node) || view.classList.contains('live-placeholder')) return contentEnd(text);
+  const before = document.createRange(); before.selectNodeContents(view); before.setEnd(node, offset);
+  const prefix = before.toString(), visible = prefix.replace(/\s/g, '');
+  if (!visible) return text.match(/^\s*(?:#{1,6}\s+|>\s*|[-*+]\s+(?:\[[ xX]\]\s+)?|\d+[.)]\s+)?/)[0].length;
+  let i = 0;
+  for (let matched = 0; matched < visible.length; i++) { if (i >= text.length) return contentEnd(text); if (text[i] === visible[matched]) matched++; }
+  if (/\s$/.test(prefix)) while (/[^\S\n]/.test(text[i] || '')) i++;
+  return i;
+}
+$('#live').addEventListener('mousedown', e => {
+  const host = e.currentTarget, bounds = host.getBoundingClientRect();
+  if (e.button !== 0 || e.target.closest('textarea') || e.clientX >= bounds.left + host.clientWidth || !liveBlocks.length) return;
+  e.preventDefault();
+  let entry = liveBlocks.find(x => x.item.contains(e.target)), caret;
+  const active = $('#live textarea');
+  if (entry && active && entry.item.contains(active)) { active.focus(); return; }
+  if (!entry && e.clientY > liveBlocks.at(-1).item.getBoundingClientRect().bottom) { entry = liveBlocks.at(-1); caret = contentEnd(entry.block.text); }
+  else {
+    // Clicks in margins or gaps target the nearest paragraph at the same height.
+    entry ||= liveBlocks.find(x => e.clientY <= x.item.getBoundingClientRect().bottom) || liveBlocks.at(-1);
+    const rect = entry.item.getBoundingClientRect(), clamp = (value, min, max) => Math.max(min, Math.min(value, max));
+    caret = caretFromPoint(entry, clamp(e.clientX, rect.left + 12, rect.right - 2), clamp(e.clientY, rect.top + 1, rect.bottom - 1));
+  }
+  if (active) active.onblur = null;
+  breakHistoryGroup(); renderLive(entry.block.start + caret);
+});
 let processingOpen = false;
 async function openRequested() { if (processingOpen) return; processingOpen = true; try { let file; while ((file = await api.pending())) { if (!await mayLeave()) { await api.dismissPending(file); continue; } await load(await api.openPending(file)); } } catch (e) { status(`打开失败：${e.message}`); } finally { processingOpen = false; } }
 api?.onOpenRequest(openRequested); refreshRecent(); if (api) openRequested();
 
-renderLive().catch(e => status(e.message));
+renderLive(editor.value.trim() ? undefined : 0).catch(e => status(e.message));
 
 let sourceMeasurements = new Map(), measurementKey = '';
 // Measure wrapped source lines using the same typography and width as the textarea.

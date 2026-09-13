@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, Menu, nativeTheme } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, Menu, nativeTheme, shell } = require('electron');
 const fs = require('node:fs/promises');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
@@ -45,7 +45,16 @@ handle('document:open-recent', file => { if (!recent.includes(file)) throw new E
 handle('document:pending', () => { rendererReady = true; return pending[0] || null; });
 handle('document:open-pending', file => { if (!pending.includes(file)) throw new Error('无打开请求'); pending = pending.filter(x => x !== file); return openFile(file); });
 handle('document:dismiss-pending', file => { pending = pending.filter(x => x !== file); });
-handle('app:about', () => buildInfo);
+const pkg = require('../package.json'), updater = require('./updater.cjs');
+const repository = pkg.repository.url.replace(/\.git$/, '');
+handle('app:about', () => ({ ...buildInfo, author: pkg.author, repository, homepage: pkg.homepage }));
+handle('app:open-external', url => {
+  if (typeof url !== 'string' || !(url === repository || url.startsWith(`${repository}/`) || url === pkg.homepage)) throw new Error('不允许打开该链接');
+  return shell.openExternal(url);
+});
+handle('update:check', () => updater.check(buildInfo.version));
+handle('update:download', () => updater.download(value => { if (win && !win.isDestroyed()) win.webContents.send('update:progress', value); }));
+handle('update:install', async () => { await updater.install(); dirty = false; setImmediate(() => app.quit()); });
 function queueFile(file) { if (!isMarkdown(file)) return; pending.push(path.resolve(file)); if (rendererReady && win && !win.isDestroyed()) win.webContents.send('document:requested'); }
 const lock = app.requestSingleInstanceLock();
 if (!lock) app.quit();
@@ -81,7 +90,6 @@ ipcMain.on('document:dirty', (event, value) => { authorized(event); dirty = !!va
 app.whenReady().then(async () => {
   if (!lock) return;
   try { recent = JSON.parse(await fs.readFile(path.join(app.getPath('userData'), 'recent.json'), 'utf8')).filter(isMarkdown).slice(0, 12); } catch {}
-  app.setAboutPanelOptions({ applicationName: 'Mardar', applicationVersion: buildInfo.tag, version: buildInfo.commit.slice(0, 12), copyright: `编译日期：${buildInfo.builtAt}\n提交：${buildInfo.commit}` });
   const create = () => {
     currentPath = null; dirty = false; rendererReady = false; darkTheme = false; modalOpen = false; nativeTheme.themeSource = 'light';
     win = new BrowserWindow({ icon: path.join(__dirname, '../build/icon.png'), titleBarStyle: 'hidden', ...(process.platform === 'darwin' ? {} : { titleBarOverlay: themeColors() }), width: 1440, height: 940, minWidth: 800, minHeight: 600, backgroundColor: '#ffffff', webPreferences: { preload: path.join(__dirname, 'preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true } });
@@ -90,8 +98,10 @@ app.whenReady().then(async () => {
     win.on('close', event => { if (dirty && dialog.showMessageBoxSync(win, { type: 'question', buttons: ['继续编辑', '放弃更改并关闭'], defaultId: 0, cancelId: 0, message: '文档尚未保存，确定关闭吗？' }) !== 1) event.preventDefault(); });
     win.loadFile(path.join(__dirname, '../dist/index.html'));
   };
-  Menu.setApplicationMenu(Menu.buildFromTemplate([{ label: 'Mardar', submenu: [{ role: 'about' }, { role: 'quit' }] }, { label: '编辑', submenu: [{ label: '撤销', accelerator: 'CmdOrCtrl+Z', click: () => win.webContents.send('document:history', false) }, { label: '重做', accelerator: 'CmdOrCtrl+Shift+Z', click: () => win.webContents.send('document:history', true) }, { type: 'separator' }, { role: 'cut' }, { role: 'copy' }, { role: 'paste' }, { role: 'selectAll' }] }, { label: '视图', submenu: [{ role: 'resetZoom' }, { role: 'zoomIn' }, { role: 'zoomOut' }, { role: 'togglefullscreen' }] }]));
+  Menu.setApplicationMenu(Menu.buildFromTemplate([{ label: 'Mardar', submenu: [{ label: '关于 Mardar', click: () => win?.webContents.send('app:show-about', false) }, { label: '检查更新…', click: () => win?.webContents.send('app:show-about', true) }, { type: 'separator' }, { role: 'quit' }] }, { label: '编辑', submenu: [{ label: '撤销', accelerator: 'CmdOrCtrl+Z', click: () => win.webContents.send('document:history', false) }, { label: '重做', accelerator: 'CmdOrCtrl+Shift+Z', click: () => win.webContents.send('document:history', true) }, { type: 'separator' }, { role: 'cut' }, { role: 'copy' }, { role: 'paste' }, { role: 'selectAll' }] }, { label: '视图', submenu: [{ role: 'resetZoom' }, { role: 'zoomIn' }, { role: 'zoomOut' }, { role: 'togglefullscreen' }] }]));
   if (process.platform !== 'darwin') Menu.setApplicationMenu(null);
   create(); app.on('activate', () => { if (!BrowserWindow.getAllWindows().length) create(); });
+  // Quietly look for a newer release; the renderer shows a notice only when one exists.
+  if (app.isPackaged) setTimeout(() => updater.check(buildInfo.version).then(result => { if (result.available && win && !win.isDestroyed()) win.webContents.send('update:available', result); }).catch(() => {}), 5000);
 });
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
