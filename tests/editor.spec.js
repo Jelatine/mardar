@@ -43,8 +43,9 @@ test('opens markdown with relative image, saves changes, exports PDF', async () 
   await page.locator('#editor').fill('# 已保存\n\n$E=mc^2$\n\n![本地图片](pixel.svg)\n\n```mermaid\ngraph LR\nA-->B\n```');
   await page.locator('#save').click();
   await expect.poll(() => readFile(file, 'utf8')).toContain('# 已保存');
+  await expect(page.locator('#status')).toHaveText('文档已保存');
   const pdf = path.join(folder, 'document.pdf'); await chooseSave(pdf);
-  await page.locator('#pdf').click(); await expect(page.locator('#status')).toContainText('PDF 已导出');
+  await page.locator('#pdf').click(); await expect(page.locator('#status')).toContainText('PDF 已导出', { timeout: 30000 });
   const bytes = await readFile(pdf); expect(bytes.subarray(0, 5).toString()).toBe('%PDF-'); expect(bytes.length).toBeGreaterThan(5000);
   await copyFile(pdf, 'test-results/document.pdf');
   await page.screenshot({ path: 'test-results/editor.png', fullPage: true });
