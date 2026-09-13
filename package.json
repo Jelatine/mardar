@@ -33,6 +33,7 @@
   "build": {
     "appId": "app.mardar.editor",
     "productName": "Mardar",
+    "artifactName": "${productName}-${version}-${os}-${arch}.${ext}",
     "files": [
       "dist/**/*",
       "electron/**/*",
@@ -56,5 +57,9 @@
       "category": "Office",
       "syncDesktopName": true
     }
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Jelatine/mardar.git"
   }
 }

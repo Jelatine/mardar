@@ -1,0 +1,46 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  desktop:
+    name: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: npx electron-builder --publish never
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      - name: Test packaged app
+        if: runner.os != 'Linux'
+        run: node scripts/test-packaged.mjs
+      - name: Test packaged app (Linux)
+        if: runner.os == 'Linux'
+        run: xvfb-run --auto-servernum node scripts/test-packaged.mjs
+      - name: Test AppImage launcher
+        if: runner.os == 'Linux'
+        shell: bash
+        run: MARDAR_APP_PATH="$(ls "$PWD"/release/*.AppImage)" xvfb-run --auto-servernum npm test
+        env:
+          APPIMAGE_EXTRACT_AND_RUN: '1'
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-${{ matrix.os }}
+          path: test-results/
+          if-no-files-found: ignore

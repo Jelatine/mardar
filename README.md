@@ -53,7 +53,19 @@ docker run --rm --platform linux/amd64 --network none --init --shm-size=1g --vol
 
 HTML 模式支持 `$...$` / `$$...$$` 公式及 `<pre class="mermaid">...</pre>` 图表，格式工具栏会使用 HTML 标签。
 
-在对应操作系统运行 `npm run dist` 可生成 `release/` 下的 macOS DMG/ZIP、Windows NSIS、Linux AppImage。GitHub Actions 配有三系统测试和打包矩阵。发行签名和 macOS 公证需由发布者配置证书；默认构建供本地试用。
+在对应操作系统运行 `npm run dist` 可生成 `release/` 下的 macOS DMG/ZIP、Windows NSIS、Linux AppImage。发行签名和 macOS 公证需由发布者配置证书；默认构建供本地试用。
+
+## CI 与发布
+
+- `.github/workflows/ci.yml`：推送到 `main` 及 PR 时，在 macOS、Windows、Linux 上构建安装包并对打包产物运行集成测试。
+- `.github/workflows/release.yml`：推送 `v*` 标签时，按标签设置版本号，构建 macOS（x64/arm64 DMG、ZIP）、Windows x64 安装程序、Linux x64 AppImage，附带 `SHA256SUMS.txt` 发布到 GitHub Release。
+
+```sh
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+安装包未签名。macOS 下载后如提示“已损坏”，执行 `xattr -cr /Applications/Mardar.app`；Windows SmartScreen 选择“仍要运行”。
 
 ## 结构
 
