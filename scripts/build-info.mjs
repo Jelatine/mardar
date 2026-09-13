@@ -1,0 +1,10 @@
+import { execFileSync } from 'node:child_process';
+import { writeFileSync, readFileSync } from 'node:fs';
+const git = (...args) => execFileSync('git', args, { encoding: 'utf8' }).trim();
+const tag = process.env.TAG || git('describe', '--tags', '--abbrev=0');
+if (!/^v?\d+\.\d+\.\d+(?:-[\w.-]+)?$/.test(tag)) throw new Error('Invalid version tag');
+const info = { version: tag.replace(/^v/, ''), tag, commit: git('rev-parse', 'HEAD'), builtAt: new Date().toISOString() };
+writeFileSync('electron/build-info.json', JSON.stringify(info, null, 2) + '\n');
+const pkg = JSON.parse(readFileSync('package.json', 'utf8'));
+pkg.version = info.version;
+writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');

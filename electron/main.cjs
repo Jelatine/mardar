@@ -3,27 +3,50 @@ const fs = require('node:fs/promises');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
 let win, currentPath = null, dirty = false;
-const filters = [{ name: 'Markdown / HTML', extensions: ['md', 'markdown', 'html', 'htm'] }];
+const filters = [{ name: 'Markdown', extensions: ['md', 'markdown'] }];
 function authorized(event) { if (event.sender !== win.webContents || event.senderFrame !== win.webContents.mainFrame) throw new Error('Untrusted sender'); }
 function handle(name, fn) { ipcMain.handle(name, async (event, ...args) => { authorized(event); return fn(...args); }); }
 handle('document:new', () => { currentPath = null; dirty = false; });
+const buildInfo = require('./build-info.json');
+let recent = [], pending = [], rendererReady = false;
+const isMarkdown = file => typeof file === 'string' && /\.(md|markdown)$/i.test(file);
+async function remember(file) {
+  recent = [file, ...recent.filter(x => x !== file)].slice(0, 12);
+  await fs.writeFile(path.join(app.getPath('userData'), 'recent.json'), JSON.stringify(recent));
+  app.addRecentDocument(file);
+}
+async function openFile(file) {
+  if (!isMarkdown(file)) throw new Error('仅支持 Markdown 文件');
+  const content = await fs.readFile(file, 'utf8');
+  await remember(file); currentPath = file; dirty = false;
+  return { content, name: path.basename(file), base: pathToFileURL(path.dirname(file) + path.sep).href, format: 'markdown' };
+}
 handle('document:open', async () => {
   const result = await dialog.showOpenDialog(win, { filters, properties: ['openFile'] });
-  if (result.canceled) return null;
-  const file = result.filePaths[0];
-  const content = await fs.readFile(file, 'utf8');
-  currentPath = file; dirty = false;
-  return { content, name: path.basename(file), base: pathToFileURL(path.dirname(file) + path.sep).href, format: /\.html?$/i.test(file) ? 'html' : 'markdown' };
+  return result.canceled ? null : openFile(result.filePaths[0]);
 });
+handle('document:recent', () => recent);
+handle('document:open-recent', file => { if (!recent.includes(file)) throw new Error('文件不在最近列表中'); return openFile(file); });
+handle('document:pending', () => { rendererReady = true; return pending[0] || null; });
+handle('document:open-pending', file => { if (!pending.includes(file)) throw new Error('无打开请求'); pending = pending.filter(x => x !== file); return openFile(file); });
+handle('document:dismiss-pending', file => { pending = pending.filter(x => x !== file); });
+handle('app:about', () => buildInfo);
+function queueFile(file) { if (!isMarkdown(file)) return; pending.push(path.resolve(file)); if (rendererReady && win && !win.isDestroyed()) win.webContents.send('document:requested'); }
+const lock = app.requestSingleInstanceLock();
+if (!lock) app.quit();
+app.on('second-instance', (_event, argv) => { argv.filter(isMarkdown).forEach(queueFile); if (win) { if (win.isMinimized()) win.restore(); win.focus(); } });
+app.on('open-file', (event, file) => { event.preventDefault(); queueFile(file); });
+process.argv.slice(1).filter(isMarkdown).forEach(queueFile);
 handle('document:save', async ({ content, saveAs, format }) => {
   if (typeof content !== 'string') throw new Error('Invalid document');
   let target = currentPath;
   if (!target || saveAs) {
-    const result = await dialog.showSaveDialog(win, { defaultPath: target || (format === 'html' ? '未命名.html' : '未命名.md'), filters });
+    const result = await dialog.showSaveDialog(win, { defaultPath: target || '未命名.md', filters });
     if (result.canceled) return null;
     target = result.filePath;
   }
-  await fs.writeFile(target, content, 'utf8'); currentPath = target; dirty = false;
+  if (!isMarkdown(target)) target += '.md';
+  await fs.writeFile(target, content, 'utf8'); await remember(target); currentPath = target; dirty = false;
   return { name: path.basename(target), base: pathToFileURL(path.dirname(target) + path.sep).href };
 });
 handle('document:image', async () => {
@@ -40,10 +63,13 @@ handle('document:pdf', async () => {
   await fs.writeFile(result.filePath, data); return result.filePath;
 });
 ipcMain.on('document:dirty', (event, value) => { authorized(event); dirty = !!value; win.setDocumentEdited(dirty); });
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
+  if (!lock) return;
+  try { recent = JSON.parse(await fs.readFile(path.join(app.getPath('userData'), 'recent.json'), 'utf8')).filter(isMarkdown).slice(0, 12); } catch {}
+  app.setAboutPanelOptions({ applicationName: 'Mardar', applicationVersion: buildInfo.tag, version: buildInfo.commit.slice(0, 12), copyright: `编译日期：${buildInfo.builtAt}\n提交：${buildInfo.commit}` });
   const create = () => {
-    currentPath = null; dirty = false;
-    win = new BrowserWindow({ width: 1440, height: 940, minWidth: 800, minHeight: 600, backgroundColor: '#f7f6f2', webPreferences: { preload: path.join(__dirname, 'preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true } });
+    currentPath = null; dirty = false; rendererReady = false;
+    win = new BrowserWindow({ icon: path.join(__dirname, '../build/icon.png'), width: 1440, height: 940, minWidth: 800, minHeight: 600, backgroundColor: '#f7f6f2', webPreferences: { preload: path.join(__dirname, 'preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true } });
     win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
     win.webContents.on('will-navigate', event => event.preventDefault());
     win.on('close', event => { if (dirty && dialog.showMessageBoxSync(win, { type: 'question', buttons: ['继续编辑', '放弃更改并关闭'], defaultId: 0, cancelId: 0, message: '文档尚未保存，确定关闭吗？' }) !== 1) event.preventDefault(); });
