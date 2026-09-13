@@ -1,0 +1,60 @@
+{
+  "name": "mardar",
+  "version": "1.0.0",
+  "description": "跨平台 Markdown 写作与阅读工具",
+  "author": "Mardar",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "main": "electron/main.cjs",
+  "desktopName": "mardar.desktop",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "start": "npm run build && electron .",
+    "build": "vite build",
+    "test": "playwright test",
+    "pack": "npm run build && electron-builder --dir",
+    "dist": "npm run build && electron-builder"
+  },
+  "dependencies": {
+    "dompurify": "3.4.15",
+    "highlight.js": "11.12.0",
+    "katex": "0.18.7",
+    "markdown-it": "15.0.2",
+    "markdown-it-texmath": "1.0.0",
+    "mermaid": "11.17.2"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0",
+    "electron": "44.3.0",
+    "electron-builder": "26.15.3",
+    "vite": "8.3.0"
+  },
+  "build": {
+    "appId": "app.mardar.editor",
+    "productName": "Mardar",
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "package.json"
+    ],
+    "directories": {
+      "output": "release"
+    },
+    "mac": {
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "category": "public.app-category.productivity"
+    },
+    "win": {
+      "target": "nsis"
+    },
+    "linux": {
+      "target": "AppImage",
+      "category": "Office",
+      "syncDesktopName": true
+    }
+  }
+}
