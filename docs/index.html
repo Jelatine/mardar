@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mardar · 跨平台 Markdown 写作与阅读工具</title>
+<meta name="description" content="Mardar 是一款本地优先的跨平台 Markdown 编辑器，支持即时编辑、分栏预览、KaTeX 公式、Mermaid 图表、代码高亮与 PDF 导出。">
+<meta property="og:title" content="Mardar">
+<meta property="og:description" content="本地优先的跨平台 Markdown 写作与阅读工具">
+<meta property="og:image" content="https://jelatine.github.io/mardar/screenshots/live.png">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<style>
+:root{--bg:#fafbf8;--panel:#fff;--soft:#f0f3ec;--line:#e1e7dc;--text:#26352c;--muted:#6d786e;--accent:#327456;--accent-dark:#26583f;color-scheme:light}
+@media (prefers-color-scheme:dark){:root{--bg:#171d18;--panel:#202820;--soft:#252e23;--line:#384235;--text:#dfe8da;--muted:#a3ae9d;--accent:#4a9a73;--accent-dark:#3b805e;color-scheme:dark}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.7 Inter,-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif}
+a{color:var(--accent)}
+.wrap{max-width:1120px;margin:0 auto;padding-inline:24px}
+nav{display:flex;align-items:center;justify-content:space-between;padding-block:20px}
+.brand{display:flex;align-items:center;gap:10px;font-weight:650;font-size:19px;color:inherit;text-decoration:none}
+.brand img{width:34px;height:34px}
+nav .links{display:flex;gap:22px;font-size:14px}
+nav .links a{color:var(--muted);text-decoration:none}
+nav .links a:hover{color:var(--text)}
+.hero{text-align:center;padding-block:56px 40px}
+.hero h1{font-size:clamp(34px,6vw,58px);line-height:1.15;letter-spacing:-.02em;margin:0 0 18px}
+.hero p{font-size:clamp(16px,2.2vw,19px);color:var(--muted);max-width:640px;margin:0 auto 32px}
+.cta{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+.button{display:inline-flex;align-items:center;gap:8px;padding:12px 22px;border-radius:10px;font-weight:600;font-size:15px;text-decoration:none;border:1px solid var(--line);color:var(--text);background:var(--panel)}
+.button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.button.primary:hover{background:var(--accent-dark)}
+.version{margin-top:14px;font-size:13px;color:var(--muted)}
+.shot{margin:28px auto 0;border-radius:14px;overflow:hidden;border:1px solid var(--line);box-shadow:0 30px 80px #1e302c26;max-width:100%}
+.shot img{display:block;width:100%;height:auto}
+section{padding-block:72px}
+h2{font-size:clamp(26px,3.6vw,34px);letter-spacing:-.01em;margin:0 0 12px;text-align:center}
+.lead{color:var(--muted);text-align:center;margin:0 auto 44px;max-width:620px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:18px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:24px}
+.card b{display:block;font-size:17px;margin-bottom:6px}
+.card span{color:var(--muted);font-size:14.5px}
+.card i{font-style:normal;display:inline-grid;place-items:center;width:38px;height:38px;border-radius:10px;background:var(--soft);color:var(--accent);font-weight:700;margin-bottom:14px}
+.gallery{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:22px}
+figure{margin:0}
+figure img{width:100%;height:auto;display:block;border-radius:12px;border:1px solid var(--line)}
+figcaption{font-size:14px;color:var(--muted);margin-top:10px;text-align:center}
+.alt{background:var(--soft)}
+.downloads{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:16px}
+.platform{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:22px;display:flex;flex-direction:column;gap:12px}
+.platform.current{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.platform h3{margin:0;font-size:18px}
+.platform small{color:var(--muted)}
+.platform a{font-size:14px}
+.note{margin-top:28px;font-size:14px;color:var(--muted);text-align:center}
+code{font:13px "SFMono-Regular",Consolas,monospace;background:var(--soft);padding:2px 6px;border-radius:5px}
+.alt code{background:var(--panel)}
+footer{padding-block:36px;border-top:1px solid var(--line);font-size:14px;color:var(--muted);display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px}
+@media (max-width:600px){nav .links a:not(.gh){display:none}section{padding-block:52px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <nav>
+    <a class="brand" href="./"><img src="icon.svg" alt="">Mardar</a>
+    <div class="links"><a href="#features">功能</a><a href="#screens">截图</a><a href="#download">下载</a><a class="gh" href="https://github.com/Jelatine/mardar">GitHub</a></div>
+  </nav>
+  <header class="hero">
+    <h1>让想法，跃然纸上</h1>
+    <p>Mardar 是一款本地优先的跨平台 Markdown 写作与阅读工具。点击即写、所见即所得，公式、图表与代码开箱即用，一键导出精美 PDF。</p>
+    <div class="cta">
+      <a class="button primary" id="primary-download" href="https://github.com/Jelatine/mardar/releases/latest">免费下载</a>
+      <a class="button" href="https://github.com/Jelatine/mardar">在 GitHub 查看源码</a>
+    </div>
+    <div class="version" id="version">支持 macOS · Windows · Linux</div>
+    <div class="shot"><img src="screenshots/live.png" alt="Mardar 即时编辑界面" width="1440" height="900"></div>
+  </header>
+</div>
+
+<section id="features">
+  <div class="wrap">
+    <h2>专注写作所需的一切</h2>
+    <p class="lead">不需要账号，不上传文档。文件就在你的磁盘上，Markdown 源码保持原样。</p>
+    <div class="grid">
+      <div class="card"><i>✎</i><b>即时编辑</b><span>点击页面任意位置直接开始写作，当前段落显示 Markdown 源码，离开即渲染，方向键在段落间自由穿梭。</span></div>
+      <div class="card"><i>◫</i><b>四种视图</b><span>即时编辑、纯源码、分栏实时预览与阅读模式，分栏滚动和光标位置双向同步。</span></div>
+      <div class="card"><i>ƒx</i><b>数学公式</b><span>KaTeX 离线渲染行内与块级公式，内置常用公式模板。</span></div>
+      <div class="card"><i>◇</i><b>Mermaid 图表</b><span>流程图、时序图、甘特图等，写代码块即可生成图表。</span></div>
+      <div class="card"><i>&lt;/&gt;</i><b>代码高亮</b><span>主流编程语言语法高亮，工具栏一键插入代码块。</span></div>
+      <div class="card"><i>↓</i><b>PDF 导出</b><span>原生 A4 排版导出，公式、图表、代码与图片完整保留。</span></div>
+      <div class="card"><i>▧</i><b>图片与 HTML</b><span>拖入、粘贴或插入图片，支持相对路径与内嵌 HTML，并自动清理不安全内容。</span></div>
+      <div class="card"><i>◐</i><b>深色主题与大纲</b><span>护眼深色主题、文档大纲导航、字符统计与最近文件。</span></div>
+      <div class="card"><i>↻</i><b>自动更新</b><span>启动时检查新版本，下载后经 SHA-256 校验再安装并重启。</span></div>
+    </div>
+  </div>
+</section>
+
+<section id="screens" class="alt">
+  <div class="wrap">
+    <h2>看看它的样子</h2>
+    <p class="lead">简洁的界面，把注意力留给文字。</p>
+    <div class="gallery">
+      <figure><img src="screenshots/split.png" alt="分栏编辑与实时预览" loading="lazy" width="1440" height="900"><figcaption>分栏编辑与实时预览</figcaption></figure>
+      <figure><img src="screenshots/dark.png" alt="深色主题阅读模式" loading="lazy" width="1440" height="900"><figcaption>深色主题阅读模式</figcaption></figure>
+      <figure><img src="screenshots/about.png" alt="关于与检查更新" loading="lazy" width="1440" height="900"><figcaption>关于与检查更新</figcaption></figure>
+    </div>
+  </div>
+</section>
+
+<section id="download">
+  <div class="wrap">
+    <h2>下载 Mardar</h2>
+    <p class="lead" id="download-lead">免费开源，基于 MIT 协议发布。</p>
+    <div class="downloads">
+      <div class="platform" data-os="mac"><h3>macOS</h3><small>Apple 芯片与 Intel</small><a data-asset="-mac-arm64.dmg" href="https://github.com/Jelatine/mardar/releases/latest">Apple 芯片（DMG）</a><a data-asset="-mac-x64.dmg" href="https://github.com/Jelatine/mardar/releases/latest">Intel（DMG）</a></div>
+      <div class="platform" data-os="win"><h3>Windows</h3><small>Windows 10 / 11，x64</small><a data-asset="-win-x64.exe" href="https://github.com/Jelatine/mardar/releases/latest">安装程序（EXE）</a></div>
+      <div class="platform" data-os="linux"><h3>Linux</h3><small>x64 AppImage，免安装</small><a data-asset="-linux-x86_64.AppImage" href="https://github.com/Jelatine/mardar/releases/latest">AppImage</a></div>
+    </div>
+    <p class="note">安装包暂未签名。macOS 若提示“已损坏”，执行 <code>xattr -cr /Applications/Mardar.app</code>；Windows SmartScreen 选择“仍要运行”。所有文件的校验值见发布页 <code>SHA256SUMS.txt</code>。</p>
+  </div>
+</section>
+
+<div class="wrap">
+  <footer><span>© 2026 <a href="https://github.com/Jelatine">Jelatine</a> · MIT License</span><span><a href="https://github.com/Jelatine/mardar">GitHub</a> · <a href="https://github.com/Jelatine/mardar/releases">版本历史</a> · <a href="https://github.com/Jelatine/mardar/issues">问题反馈</a></span></footer>
+</div>
+
+<script>
+(async () => {
+  const ua = navigator.userAgent, os = /Mac/.test(ua) ? 'mac' : /Win/.test(ua) ? 'win' : /Linux|X11/.test(ua) ? 'linux' : '';
+  document.querySelector(`.platform[data-os="${os}"]`)?.classList.add('current');
+  try {
+    const response = await fetch('https://api.github.com/repos/Jelatine/mardar/releases/latest', { headers: { Accept: 'application/vnd.github+json' } });
+    if (!response.ok) return;
+    const release = await response.json(), assets = release.assets || [];
+    document.getElementById('version').textContent = `最新版本 ${release.tag_name} · 发布于 ${new Date(release.published_at).toLocaleDateString('zh-CN')} · 支持 macOS · Windows · Linux`;
+    document.querySelectorAll('[data-asset]').forEach(link => {
+      const asset = assets.find(a => a.name.endsWith(link.dataset.asset));
+      if (asset) { link.href = asset.browser_download_url; link.textContent += ` · ${(asset.size / 1048576).toFixed(0)} MB`; }
+    });
+    const primary = { mac: '-mac-arm64.dmg', win: '-win-x64.exe', linux: '-linux-x86_64.AppImage' }[os];
+    const asset = primary && assets.find(a => a.name.endsWith(primary));
+    if (asset) { const link = document.getElementById('primary-download'); link.href = asset.browser_download_url; link.textContent = `下载 ${release.tag_name}（${{ mac: 'macOS', win: 'Windows', linux: 'Linux' }[os]}）`; }
+  } catch {}
+})();
+</script>
+</body>
+</html>
