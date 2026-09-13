@@ -186,6 +186,9 @@ test('cleanup handles an application that has already exited', async () => {
 test('live document scroll stays contained and history survives paragraph blur', async () => {
   await page.locator('#editor').fill(Array.from({ length: 100 }, (_, i) => `## Heading ${i}\n\nParagraph ${i}\n`).join('\n'));
   await page.locator('button[data-view=live]').click();
+  const bounds = await page.locator('#live').evaluate(el => ({ right: el.getBoundingClientRect().right, windowRight: innerWidth, scrolls: el.scrollHeight > el.clientHeight }));
+  expect(bounds.right).toBe(bounds.windowRight);
+  expect(bounds.scrolls).toBe(true);
   await page.locator('#live h2').first().click();
   await page.locator('#live textarea').fill('## Changed\n\n');
   await page.locator('#live textarea').press('Escape');
@@ -273,6 +276,18 @@ test('native title controls follow theme and PDF canvas stays white', async () =
   await expect(page.locator('body')).toHaveClass(/dark/);
   expect(await app.evaluate(({ nativeTheme }) => nativeTheme.themeSource)).toBe('dark');
   if (process.platform !== 'darwin') expect(await app.evaluate(() => globalThis.lastOverlay.color)).toBe('#202820');
+  await expect(page.locator('body')).toHaveCSS('color-scheme', 'dark');
+  await page.locator('#editor').fill('Text `inline code`');
+  await expect(page.locator('#preview p code')).toHaveCSS('color', 'rgb(228, 237, 221)');
+  await expect(page.locator('#preview p code')).toHaveCSS('background-color', 'rgb(54, 67, 48)');
+  await page.locator('#about').click();
+  await expect(page.locator('dialog[open]')).toBeVisible();
+  if (process.platform !== 'darwin') {
+    await expect.poll(() => app.evaluate(() => globalThis.lastOverlay.color)).toBe('#1f2b24');
+    expect(await app.evaluate(() => globalThis.lastOverlay.height)).toBe(47);
+  }
+  await page.keyboard.press('Escape');
+  if (process.platform !== 'darwin') await expect.poll(() => app.evaluate(() => globalThis.lastOverlay.color)).toBe('#202820');
   await page.locator('#editor').fill('# White page\n\nBody text.');
   const pdf = path.join(folder, 'dark-theme.pdf'); await chooseSave(pdf); await page.locator('#pdf').click();
   await expect(page.locator('#status')).toContainText('PDF 已导出');

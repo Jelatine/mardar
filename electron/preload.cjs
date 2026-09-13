@@ -1,5 +1,6 @@
 const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('desktop', {
+  modal: open => ipcRenderer.invoke('window:modal', open),
   theme: dark => ipcRenderer.invoke('window:theme', dark),
   onHistory: callback => ipcRenderer.on('document:history', (_event, redo) => callback(redo)),
   recent: () => ipcRenderer.invoke('document:recent'),

@@ -2,13 +2,23 @@ const { app, BrowserWindow, ipcMain, dialog, Menu, nativeTheme } = require('elec
 const fs = require('node:fs/promises');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
-let win, currentPath = null, dirty = false, darkTheme = false;
-const themeColors = () => ({ color: darkTheme ? '#202820' : '#ffffff', symbolColor: darkTheme ? '#d9e2d4' : '#303b35', height: 48 });
+let win, currentPath = null, dirty = false, darkTheme = false, modalOpen = false;
+// Match dialog::backdrop (rgba(30, 48, 44, 1/3)) over native controls.
+const dimColor = hex => '#' + hex.slice(1).match(/../g).map((channel, i) => Math.round(parseInt(channel, 16) * 2 / 3 + [30, 48, 44][i] / 3).toString(16).padStart(2, '0')).join('');
+const themeColors = () => {
+  const color = darkTheme ? '#202820' : '#ffffff', symbolColor = darkTheme ? '#d9e2d4' : '#303b35';
+  // Leave the header's bottom border visible below the native overlay.
+  return { color: modalOpen ? dimColor(color) : color, symbolColor: modalOpen ? dimColor(symbolColor) : symbolColor, height: 47 };
+};
 const filters = [{ name: 'Markdown', extensions: ['md', 'markdown'] }];
 function authorized(event) { if (event.sender !== win.webContents || event.senderFrame !== win.webContents.mainFrame) throw new Error('Untrusted sender'); }
 function handle(name, fn) { ipcMain.handle(name, async (event, ...args) => { authorized(event); return fn(...args); }); }
 handle('window:theme', dark => {
   darkTheme = dark === true; nativeTheme.themeSource = darkTheme ? 'dark' : 'light';
+  if (process.platform !== 'darwin') win.setTitleBarOverlay(themeColors());
+});
+handle('window:modal', open => {
+  modalOpen = open === true;
   if (process.platform !== 'darwin') win.setTitleBarOverlay(themeColors());
 });
 handle('document:new', () => { currentPath = null; dirty = false; });
@@ -73,7 +83,7 @@ app.whenReady().then(async () => {
   try { recent = JSON.parse(await fs.readFile(path.join(app.getPath('userData'), 'recent.json'), 'utf8')).filter(isMarkdown).slice(0, 12); } catch {}
   app.setAboutPanelOptions({ applicationName: 'Mardar', applicationVersion: buildInfo.tag, version: buildInfo.commit.slice(0, 12), copyright: `编译日期：${buildInfo.builtAt}\n提交：${buildInfo.commit}` });
   const create = () => {
-    currentPath = null; dirty = false; rendererReady = false; darkTheme = false; nativeTheme.themeSource = 'light';
+    currentPath = null; dirty = false; rendererReady = false; darkTheme = false; modalOpen = false; nativeTheme.themeSource = 'light';
     win = new BrowserWindow({ icon: path.join(__dirname, '../build/icon.png'), titleBarStyle: 'hidden', ...(process.platform === 'darwin' ? {} : { titleBarOverlay: themeColors() }), width: 1440, height: 940, minWidth: 800, minHeight: 600, backgroundColor: '#ffffff', webPreferences: { preload: path.join(__dirname, 'preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true } });
     win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
     win.webContents.on('will-navigate', event => event.preventDefault());
