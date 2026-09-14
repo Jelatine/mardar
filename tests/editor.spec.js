@@ -23,7 +23,7 @@ test.beforeEach(async ({}, testInfo) => {
   await expect(page.locator('#editor')).toHaveValue(startup ? '# 冷启动\n' : '');
   await expect(page.locator('#dirty')).toBeEmpty();
   await expect(page.locator('.panes')).toHaveAttribute('data-view', 'live');
-  await page.locator('button[data-view=split]').click();
+  if (!startup) await page.locator('button[data-view=split]').click();
 });
 test.afterEach(async () => {
   if (!app) return;
@@ -182,6 +182,8 @@ test('system open immediately after startup does not ask to save', async () => {
 });
 
 test('cold launch opens the requested file without a save prompt', async () => {
+  await expect(page.locator('#live h1')).toBeVisible();
+  await expect(page.locator('#live h1')).toHaveText('冷启动');
   await expect(page.locator('#preview h1')).toHaveText('冷启动');
   await expect(page.locator('#confirm')).not.toBeVisible();
 });
@@ -398,4 +400,48 @@ test('about shows author and repository and checks for updates', async () => {
   await about.getByRole('button', { name: '前往下载' }).click();
   await expect.poll(() => app.evaluate(() => globalThis.openedUrl)).toBe('https://github.com/Jelatine/mardar/releases/tag/v99.0.0');
   expect(await page.evaluate(() => window.desktop.openExternal('https://example.com').then(() => 'opened', e => e.message))).toContain('不允许');
+});
+
+test('system open replaces a focused live paragraph without blanking the document', async () => {
+  await page.locator('button[data-view=live]').click();
+  await expect(page.locator('#live textarea')).toBeFocused();
+  const file = path.join(folder, 'live-open.md');
+  await writeFile(file, '# 系统文件\n\n正文内容');
+  await app.evaluate(({ app }, file) => app.emit('second-instance', {}, ['mardar', file]), file);
+  await expect(page.locator('#live h1')).toHaveText('系统文件');
+  await expect(page.locator('#live')).toContainText('正文内容');
+  await expect(page.locator('#live textarea')).toHaveCount(0);
+});
+test('image paths support manual entry, cancellation and relative local files', async () => {
+  const file = path.join(folder, 'paths.md'), image = path.join(folder, '图 (1).svg');
+  await writeFile(file, '');
+  await writeFile(image, '<svg xmlns="http://www.w3.org/2000/svg" width="30" height="20"></svg>');
+  await chooseOpen(file); await page.locator('#open').click();
+  const openPath = async () => { await page.locator('#image').click(); await page.getByRole('menuitem', { name: '插入图片路径', exact: true }).click(); };
+  await openPath(); await page.locator('.image-path-dialog input').fill('unused.png');
+  await page.getByRole('button', { name: '取消', exact: true }).click();
+  await expect(page.locator('#editor')).toHaveValue('');
+  await openPath(); await chooseOpen(image);
+  await page.getByRole('button', { name: '选择本地图片', exact: true }).click();
+  await expect(page.locator('.image-path-dialog input')).toHaveValue(encodeURIComponent('图 (1).svg'));
+  await page.getByRole('button', { name: '插入', exact: true }).click();
+  await expect(page.locator('#preview img')).toBeVisible();
+  await expect.poll(() => page.locator('#preview img').evaluate(img => img.naturalWidth)).toBe(30);
+  await openPath(); await page.locator('.image-path-dialog input').fill('https://example.com/photo (2).png');
+  await page.getByRole('button', { name: '插入', exact: true }).click();
+  await expect(page.locator('#editor')).toHaveValue(/https:\/\/example.com\/photo%20\(2\).png/);
+});
+
+test('unsaved live documents insert and render absolute image paths', async () => {
+  const image = path.join(folder, 'absolute #1.svg');
+  await writeFile(image, '<svg xmlns="http://www.w3.org/2000/svg" width="40" height="20"></svg>');
+  await page.locator('button[data-view=live]').click();
+  await page.locator('#image').click();
+  await page.getByRole('menuitem', { name: '插入图片路径', exact: true }).click();
+  await chooseOpen(image); await page.getByRole('button', { name: '选择本地图片', exact: true }).click();
+  await expect(page.locator('.image-path-dialog input')).toHaveValue(/^file:\/\//);
+  await page.getByRole('button', { name: '插入', exact: true }).click();
+  await page.locator('#live textarea').press('Escape');
+  await expect.poll(() => page.locator('#live img').evaluate(img => img.naturalWidth)).toBe(40);
+  await expect(page.locator('.panes')).toHaveAttribute('data-view', 'live');
 });

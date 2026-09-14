@@ -73,10 +73,15 @@ handle('document:save', async ({ content, saveAs, format }) => {
   await fs.writeFile(target, content, 'utf8'); await remember(target); currentPath = target; dirty = false;
   return { name: path.basename(target), base: pathToFileURL(path.dirname(target) + path.sep).href };
 });
-handle('document:image', async () => {
+handle('document:image', async mode => {
   const result = await dialog.showOpenDialog(win, { filters: [{ name: '图片', extensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'] }], properties: ['openFile'] });
   if (result.canceled) return null;
   const file = result.filePaths[0];
+  if (mode === 'path') {
+    const relative = currentPath ? path.relative(path.dirname(currentPath), file) : null;
+    const url = relative && !path.isAbsolute(relative) ? relative.split(path.sep).map(encodeURIComponent).join('/') : pathToFileURL(file).href;
+    return { name: path.basename(file), url };
+  }
   const ext = path.extname(file).slice(1).toLowerCase();
   return { name: path.basename(file), url: `data:image/${ext === 'svg' ? 'svg+xml' : ext === 'jpg' ? 'jpeg' : ext};base64,${(await fs.readFile(file)).toString('base64')}` };
 });

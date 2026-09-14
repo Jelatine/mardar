@@ -9,7 +9,12 @@ const md = new MarkdownIt({ html: true, linkify: true, typographer: true, highli
   return lang && hljs.getLanguage(lang) ? hljs.highlight(code, { language: lang }).value : md.utils.escapeHtml(code);
 }}).use(texmath, { engine: katex, delimiters: 'dollars', katexOptions: { throwOnError: false, trust: false } });
 const validateLink = md.validateLink;
-md.validateLink = url => /^data:image\/(?:png|jpeg|gif|webp|svg\+xml);base64,[a-z0-9+/=]+$/i.test(url) || validateLink(url);
+// Local image references are useful in desktop documents; other file attributes
+// still pass through the normal sanitizer.
+DOMPurify.addHook('uponSanitizeAttribute', (node, data) => {
+  if (node.tagName === 'IMG' && data.attrName === 'src' && /^file:\/\//i.test(data.attrValue)) data.forceKeepAttr = true;
+});
+md.validateLink = url => /^file:\/\//i.test(url) || /^data:image\/(?:png|jpeg|gif|webp|svg\+xml);base64,[a-z0-9+/=]+$/i.test(url) || validateLink(url);
 md.core.ruler.push('source_positions', state => {
   for (const token of state.tokens) if (token.map && token.nesting !== -1) {
     token.attrSet('data-source-line', String(token.map[0]));

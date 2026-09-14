@@ -81,6 +81,24 @@ let imageFormat = 'markdown';
 function addImage(item) { insert(imageFormat === 'html' ? `<img src="${item.url.replaceAll('&', '&amp;').replaceAll('"', '&quot;')}" alt="图片" width="600" />` : `![图片](${item.url})`); }
 function readImage(file) { const reader = new FileReader(); reader.onload = () => addImage({ url: reader.result }); reader.readAsDataURL(file); }
 async function chooseImage(kind) { imageFormat = kind; try { if (api) { const item = await api.image(); if (item) addImage(item); } else $('#image-file').click(); } catch (e) { status(e.message); } };
+function insertImagePath() {
+  const d = document.createElement('dialog'); d.className = 'image-path-dialog';
+  d.innerHTML = `<form><h2>插入图片路径</h2><label>图片路径或网址<input name="path" placeholder="images/photo.png 或 https://…" required></label><p>相对路径以当前 Markdown 文件所在目录为起点。</p><div><button type="button" data-browse>选择本地图片</button><button type="button" data-cancel>取消</button><button class="primary" type="submit">插入</button></div></form>`;
+  const input = d.querySelector('input');
+  d.querySelector('[data-browse]').hidden = !api;
+  d.querySelector('[data-browse]').onclick = async () => { try { const item = await api.image('path'); if (item) input.value = item.url; } catch (e) { status(e.message); } };
+  d.querySelector('[data-cancel]').onclick = () => d.close();
+  d.querySelector('form').onsubmit = e => {
+    e.preventDefault(); let url = input.value.trim().replaceAll('\\', '/');
+    if (!url) return;
+    if (/^[a-z]:\//i.test(url)) url = 'file:///' + url;
+    else if (url.startsWith('//')) url = 'file:' + url;
+    // Angle-delimited destinations support parentheses; escape whitespace and delimiters.
+    url = url.replace(/[ <>\r\n]/g, c => encodeURIComponent(c));
+    d.close(); insert(`![图片](<${url}>)`);
+  };
+  d.onclose = () => d.remove(); document.body.append(d); d.showModal(); input.focus();
+}
 $('#image-file').onchange = e => { if (e.target.files[0]) readImage(e.target.files[0]); e.target.value = ''; };
 editor.addEventListener('dragover', e => e.preventDefault()); editor.addEventListener('drop', e => { e.preventDefault(); for (const f of e.dataTransfer.files) if (f.type.startsWith('image/')) readImage(f); });
 editor.addEventListener('paste', e => { const images = [...e.clipboardData.files].filter(f => f.type.startsWith('image/')); if (images.length) { e.preventDefault(); images.forEach(readImage); } });
@@ -151,17 +169,21 @@ async function renderLive(focus) {
   const generation = ++liveGeneration, host = $('#live'), entries = [], cache = new Map(), empty = !editor.value.trim();
   for (const block of sourceBlocks(editor.value)) {
     const key = `${base}\n${block.text}`;
-    let view = liveCache.get(key)?.pop();
+    let view = liveCache.get(key)?.find(candidate => !entries.some(entry => entry.view === candidate));
     if (!view && empty) { view = document.createElement('p'); view.className = 'live-placeholder'; view.textContent = livePlaceholder; }
     if (!view) { view = await renderDocument(block.text, 'markdown', base); if (generation !== liveGeneration) return; }
     cache.set(key, [...(cache.get(key) || []), view]);
-    const item = document.createElement('div'); item.className = 'live-block'; item.tabIndex = 0; item.append(view);
+    const item = document.createElement('div'); item.className = 'live-block'; item.tabIndex = 0;
     const entry = { block, item, view };
     item.onkeydown = e => { if (e.target === item && e.key === 'Enter') { e.preventDefault(); activateLive(entry, contentEnd(block.text)); } };
     entries.push(entry);
   }
   if (generation !== liveGeneration) return;
   const scroll = host.scrollTop; liveCache = cache; liveBlocks = entries;
+  // Replacing a focused textarea can synchronously fire blur on Windows.
+  // Disable its handler before committing so it cannot start a competing render.
+  const active = host.querySelector('textarea'); if (active) active.onblur = null;
+  entries.forEach(entry => entry.item.append(entry.view));
   host.replaceChildren(...entries.map(entry => entry.item)); host.scrollTop = scroll;
   if (focus != null) { const entry = entries.findLast(x => x.block.start <= focus) || entries[0]; activateLive(entry, focus - entry.block.start); }
 }
@@ -316,4 +338,4 @@ attachMenu('heading', Array.from({ length: 6 }, (_, i) => [`H${i + 1} · ${i + 1
 attachMenu('code', ['plaintext', 'javascript', 'typescript', 'python', 'java', 'c', 'cpp', 'csharp', 'go', 'rust', 'bash', 'sql', 'json', 'yaml', 'html', 'css'].map(language => [language === 'plaintext' ? '纯文本' : language, () => insert('\n```' + language + '\n', '\n```\n')]));
 attachMenu('math', formulaTemplates.map(([label, value]) => [label, () => insert('\n$$\n' + value + '\n$$\n')]));
 attachMenu('chart', chartTemplates.map(([label, value]) => [label, () => insert('\n```mermaid\n' + value + '\n```\n')]));
-attachMenu('image', [['Markdown 图片', () => chooseImage('markdown')], ['HTML 图片（可调整宽度）', () => chooseImage('html')]]);
+attachMenu('image', [['Markdown 图片', () => chooseImage('markdown')], ['HTML 图片（可调整宽度）', () => chooseImage('html')], ['插入图片路径', insertImagePath]]);
