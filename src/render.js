@@ -4,7 +4,7 @@ import katex from 'katex';
 import hljs from 'highlight.js';
 import DOMPurify from 'dompurify';
 import mermaid from 'mermaid';
-mermaid.initialize({ startOnLoad: false, securityLevel: 'strict', theme: 'neutral', htmlLabels: false, flowchart: { htmlLabels: false } });
+mermaid.initialize({ startOnLoad: false, securityLevel: 'strict', theme: 'base', fontFamily: 'PingFang SC, Microsoft YaHei, Noto Sans CJK SC, Segoe UI, sans-serif', themeVariables: { primaryColor: '#ffffff', primaryTextColor: '#1e3a5f', primaryBorderColor: '#3b82f6', lineColor: '#2563eb', secondaryColor: '#eff6ff', tertiaryColor: '#f8fbff', edgeLabelBackground: '#eff6ff', clusterBkg: '#eff6ff', clusterBorder: '#bfdbfe', fontSize: '16px' }, htmlLabels: false, flowchart: { htmlLabels: false, curve: 'linear', nodeSpacing: 35, rankSpacing: 45, padding: 18 } });
 const md = new MarkdownIt({ html: true, linkify: true, typographer: true, highlight(code, lang) {
   return lang && hljs.getLanguage(lang) ? hljs.highlight(code, { language: lang }).value : md.utils.escapeHtml(code);
 }}).use(texmath, { engine: katex, delimiters: 'dollars', katexOptions: { throwOnError: false, trust: false } });

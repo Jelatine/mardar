@@ -2,7 +2,7 @@ const { app, BrowserWindow, ipcMain, dialog, Menu, nativeTheme, shell } = requir
 const fs = require('node:fs/promises');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
-let win, currentPath = null, dirty = false, darkTheme = false, modalOpen = false;
+let win, currentPath = null, dirty = false, darkTheme = false, modalOpen = false, closePending = false, allowClose = false, quitting = false;
 // Match dialog::backdrop (rgba(30, 48, 44, 1/3)) over native controls.
 const dimColor = hex => '#' + hex.slice(1).match(/../g).map((channel, i) => Math.round(parseInt(channel, 16) * 2 / 3 + [30, 48, 44][i] / 3).toString(16).padStart(2, '0')).join('');
 const themeColors = () => {
@@ -79,7 +79,7 @@ handle('document:image', async mode => {
   const file = result.filePaths[0];
   if (mode === 'path') {
     const relative = currentPath ? path.relative(path.dirname(currentPath), file) : null;
-    const url = relative && !path.isAbsolute(relative) ? relative.split(path.sep).map(encodeURIComponent).join('/') : pathToFileURL(file).href;
+    const url = relative && !path.isAbsolute(relative) && relative.split(path.sep).filter(part => part === '..').length <= 2 ? relative.split(path.sep).map(encodeURIComponent).join('/') : pathToFileURL(file).href;
     return { name: path.basename(file), url };
   }
   const ext = path.extname(file).slice(1).toLowerCase();
@@ -96,11 +96,16 @@ app.whenReady().then(async () => {
   if (!lock) return;
   try { recent = JSON.parse(await fs.readFile(path.join(app.getPath('userData'), 'recent.json'), 'utf8')).filter(isMarkdown).slice(0, 12); } catch {}
   const create = () => {
+    closePending = false; allowClose = false; quitting = false;
     currentPath = null; dirty = false; rendererReady = false; darkTheme = false; modalOpen = false; nativeTheme.themeSource = 'light';
     win = new BrowserWindow({ icon: path.join(__dirname, '../build/icon.png'), titleBarStyle: 'hidden', ...(process.platform === 'darwin' ? {} : { titleBarOverlay: themeColors() }), width: 1440, height: 940, minWidth: 800, minHeight: 600, backgroundColor: '#ffffff', webPreferences: { preload: path.join(__dirname, 'preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true } });
     win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
     win.webContents.on('will-navigate', event => event.preventDefault());
-    win.on('close', event => { if (dirty && dialog.showMessageBoxSync(win, { type: 'question', buttons: ['继续编辑', '放弃更改并关闭'], defaultId: 0, cancelId: 0, message: '文档尚未保存，确定关闭吗？' }) !== 1) event.preventDefault(); });
+    win.on('close', event => {
+      if (allowClose || !dirty) return;
+      event.preventDefault();
+      if (!closePending) { closePending = true; win.webContents.send('window:close-request'); }
+    });
     win.loadFile(path.join(__dirname, '../dist/index.html'));
   };
   Menu.setApplicationMenu(Menu.buildFromTemplate([{ label: 'Mardar', submenu: [{ label: '关于 Mardar', click: () => win?.webContents.send('app:show-about', false) }, { label: '检查更新…', click: () => win?.webContents.send('app:show-about', true) }, { type: 'separator' }, { role: 'quit' }] }, { label: '编辑', submenu: [{ label: '撤销', accelerator: 'CmdOrCtrl+Z', click: () => win.webContents.send('document:history', false) }, { label: '重做', accelerator: 'CmdOrCtrl+Shift+Z', click: () => win.webContents.send('document:history', true) }, { type: 'separator' }, { role: 'cut' }, { role: 'copy' }, { role: 'paste' }, { role: 'selectAll' }] }, { label: '视图', submenu: [{ role: 'resetZoom' }, { role: 'zoomIn' }, { role: 'zoomOut' }, { role: 'togglefullscreen' }] }]));
@@ -110,3 +115,12 @@ app.whenReady().then(async () => {
   if (app.isPackaged) setTimeout(() => updater.check(buildInfo.version).then(result => { if (result.available && win && !win.isDestroyed()) win.webContents.send('update:available', result); }).catch(() => {}), 5000);
 });
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
+
+app.on('before-quit', () => { quitting = true; });
+handle('window:close-response', allowed => {
+  if (!closePending) return;
+  closePending = false;
+  if (allowed !== true) { quitting = false; return; }
+  allowClose = true;
+  if (quitting) app.quit(); else win.close();
+});

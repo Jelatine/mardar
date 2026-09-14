@@ -33,3 +33,5 @@ dialog.about{width:min(460px,calc(100vw - 40px))}.about-head{display:flex;align-
 #update-notice{margin-right:15px;padding:2px 8px;font-size:10px;color:#fff;background:var(--accent)}#update-notice:hover{background:#26583f}
 
 .image-path-dialog{width:min(540px,90vw)}.image-path-dialog label{display:block}.image-path-dialog input{display:block;width:100%;box-sizing:border-box;margin:12px 0;padding:10px;border:1px solid var(--muted);border-radius:6px;background:var(--soft);color:inherit}.image-path-dialog p{font-size:13px;color:var(--muted)}
+.image-path-dialog form>div{display:flex;justify-content:flex-end;gap:8px;margin-top:24px;flex-wrap:wrap}
+#confirm{width:min(480px,90vw)}#confirm p{line-height:1.7;overflow-wrap:anywhere}#confirm>div{flex-wrap:wrap}

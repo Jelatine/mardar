@@ -11,7 +11,7 @@ const $ = s => document.querySelector(s);
 let name = '未命名.md', base = '', saved = '', format = 'markdown', version = 0, rendering = Promise.resolve(), timer;
 // Older versions persisted drafts; every launch now starts with a clean document.
 try { localStorage.removeItem('mardar-draft'); } catch {}
-$('#app').innerHTML = `<aside class="sidebar"><button class="new" id="new">＋ 新建文档 <kbd>⌘ N</kbd></button><button class="open" id="open">▱ 打开本地文件</button><details id="recent"><summary>最近打开</summary><div id="recent-list"></div></details><div class="actions"><button id="save">保存</button><button id="save-as">另存为</button><button class="primary" id="pdf">↓ 导出 PDF</button></div><div class="outline-header">文档大纲 <span>≡</span></div><nav id="outline"></nav><div class="sidebar-footer"><span class="online"></span> 本地优先 · 自由创作<button id="about">关于 Mardar</button></div></aside><main><header class="titlebar"><button id="toggle-sidebar" title="隐藏左侧工具栏" aria-label="隐藏左侧工具栏" aria-expanded="true">☰</button><div class="breadcrumb"><b id="name"></b><i id="dirty" aria-label="未保存"></i></div></header><section class="toolbar"><div class="format-tools"><button id="undo" title="撤销">↶</button><button id="redo" title="重做">↷</button><span class="divider"></span><button data-wrap="**" title="粗体">B</button><button data-wrap="*" title="斜体"><i>I</i></button><button id="heading" title="标题">H ▾</button><span class="divider"></span><button data-prefix="> " title="引用">❞</button><button data-prefix="- " title="列表">☷</button><button id="link" title="插入链接">↗</button><button id="image" title="插入图片">▧ ▾</button><button id="code" title="代码块">&lt;/&gt; ▾</button><button id="math" title="数学公式">ƒx ▾</button><button id="chart" title="Mermaid 图表">◇ ▾</button></div><div class="view-tools"><button class="selected" data-view="live">即时编辑</button><button data-view="edit">编辑</button><button data-view="split">分栏</button><button data-view="read">阅读</button><button id="theme" title="切换深色主题">◐</button></div></section><section class="panes" data-view="live"><div id="live" class="prose"></div><div class="editor-pane"><div class="pane-label">源文档 <span>纯粹书写，自由表达</span></div><textarea id="editor" spellcheck="false" aria-label="文档编辑器"></textarea></div><div class="preview-pane"><div class="pane-label">实时预览 <span>✦ 所见即所得</span></div><div id="preview"></div></div></section><footer><span id="status">准备就绪</span><span><button id="update-notice" hidden></button><span id="count"></span><span class="footer-divider">|</span>UTF-8<span class="footer-divider">|</span><span id="position">行 1，列 1</span></span></footer></main><input type="file" id="file" accept=".md,.markdown" hidden><input type="file" id="image-file" accept="image/*" hidden><dialog id="confirm"><h2>保存当前更改？</h2><p>离开当前文档前，可以保存你的写作内容。</p><div><button data-choice="cancel">取消</button><button data-choice="discard">不保存</button><button class="primary" data-choice="save">保存</button></div></dialog>`;
+$('#app').innerHTML = `<aside class="sidebar"><button class="new" id="new">＋ 新建文档 <kbd>⌘ N</kbd></button><button class="open" id="open">▱ 打开本地文件</button><details id="recent"><summary>最近打开</summary><div id="recent-list"></div></details><div class="actions"><button id="save">保存</button><button id="save-as">另存为</button><button class="primary" id="pdf">↓ 导出 PDF</button></div><div class="outline-header">文档大纲 <span>≡</span></div><nav id="outline"></nav><div class="sidebar-footer"><span class="online"></span> 本地优先 · 自由创作<button id="about">关于 Mardar</button></div></aside><main><header class="titlebar"><button id="toggle-sidebar" title="隐藏左侧工具栏" aria-label="隐藏左侧工具栏" aria-expanded="true">☰</button><div class="breadcrumb"><b id="name"></b><i id="dirty" aria-label="未保存"></i></div></header><section class="toolbar"><div class="format-tools"><button id="undo" title="撤销">↶</button><button id="redo" title="重做">↷</button><span class="divider"></span><button data-wrap="**" title="粗体">B</button><button data-wrap="*" title="斜体"><i>I</i></button><button id="heading" title="标题">H ▾</button><span class="divider"></span><button data-prefix="> " title="引用">❞</button><button data-prefix="- " title="列表">☷</button><button id="link" title="插入链接">↗</button><button id="image" title="插入图片">▧ ▾</button><button id="table" title="插入表格">▦</button><button id="code" title="代码块">&lt;/&gt; ▾</button><button id="math" title="数学公式">ƒx ▾</button><button id="chart" title="Mermaid 图表">◇ ▾</button></div><div class="view-tools"><button class="selected" data-view="live">即时编辑</button><button data-view="edit">编辑</button><button data-view="split">分栏</button><button data-view="read">阅读</button><button id="theme" title="切换深色主题">◐</button></div></section><section class="panes" data-view="live"><div id="live" class="prose"></div><div class="editor-pane"><div class="pane-label">源文档 <span>纯粹书写，自由表达</span></div><textarea id="editor" spellcheck="false" aria-label="文档编辑器"></textarea></div><div class="preview-pane"><div class="pane-label">实时预览 <span>✦ 所见即所得</span></div><div id="preview"></div></div></section><footer><span id="status">准备就绪</span><span><button id="update-notice" hidden></button><span id="count"></span><span class="footer-divider">|</span>UTF-8<span class="footer-divider">|</span><span id="position">行 1，列 1</span></span></footer></main><input type="file" id="file" accept=".md,.markdown" hidden><input type="file" id="image-file" accept="image/*" hidden><dialog id="confirm"><h2>保存当前更改？</h2><p>离开当前文档前，可以保存你的写作内容。</p><div><button data-choice="cancel">取消</button><button data-choice="discard">不保存</button><button class="primary" data-choice="save">保存</button></div></dialog>`;
 if (!/Mac/.test(navigator.platform)) $('.new kbd').textContent = 'Ctrl N';
 // Native title controls sit above the DOM backdrop; keep their colors in sync.
 if (api) {
@@ -71,31 +71,54 @@ document.addEventListener('pointerdown', breakHistoryGroup);
 
 function download(content, filename, type) { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([content], { type })); a.download = filename; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000); }
 async function save(saveAs = false) { breakHistoryGroup(); try { const content = editor.value; const result = api ? await api.save(content, saveAs, format) : { name }; if (!result) return false; if (!api) download(content, name, 'text/plain;charset=utf-8'); name = result.name; base = result.base || ''; saved = content; metadata(); await render(); await refreshRecent(); status('文档已保存'); return true; } catch (e) { status(`保存失败：${e.message}`); return false; } }
-async function mayLeave() { if (editor.value === saved) return true; const choice = await new Promise(resolve => { const d = $('#confirm'); d.showModal(); d.oncancel = e => { e.preventDefault(); d.close(); resolve('cancel'); }; d.querySelectorAll('button').forEach(b => b.onclick = () => { d.close(); resolve(b.dataset.choice); }); }); return choice === 'discard' || (choice === 'save' && await save()); }
+let leavePending;
+function mayLeave(closing = false) {
+  if (leavePending) return leavePending;
+  if (editor.value === saved) return Promise.resolve(true);
+  leavePending = (async () => {
+    const d = $('#confirm');
+    d.querySelector('h2').textContent = closing ? '关闭前保存更改？' : '保存当前更改？';
+    d.querySelector('p').textContent = `“${name}”有未保存的更改。保存后可继续使用；不保存将丢失这些更改。`;
+    d.querySelector('[data-choice=save]').textContent = closing ? '保存并关闭' : '保存';
+    d.querySelector('[data-choice=discard]').textContent = closing ? '不保存并关闭' : '不保存';
+    const choice = await new Promise(resolve => {
+      d.showModal(); d.querySelector('[data-choice=save]').focus();
+      d.oncancel = e => { e.preventDefault(); d.close(); resolve('cancel'); };
+      d.querySelectorAll('button').forEach(b => b.onclick = () => { d.close(); resolve(b.dataset.choice); });
+    });
+    return choice === 'discard' || (choice === 'save' && await save() && editor.value === saved);
+  })().finally(() => { leavePending = null; });
+  return leavePending;
+}
+api?.onCloseRequest?.(async () => { const allowed = await mayLeave(true); await api.closeResponse(allowed); });
+
 async function load(doc) { breakHistoryGroup(); editor.value = doc.content; history = [editor.value]; historyIndex = 0; saved = editor.value; name = doc.name; base = doc.base || ''; format = 'markdown';  changed(); await render(); if ($('.panes').dataset.view === 'live') await renderLive(editor.value.trim() ? undefined : 0); await refreshRecent(); }
 $('#save').onclick = () => save(); $('#save-as').onclick = () => save(true);
 $('#new').onclick = async () => { if (!await mayLeave()) return; await api?.newDocument(); await load({ content: '', name: '未命名.md', format: 'markdown' }); if ($('.panes').dataset.view !== 'live') editor.focus(); };
 $('#open').onclick = async () => { if (!await mayLeave()) return; try { if (api) { const doc = await api.open(); if (doc) await load(doc); } else $('#file').click(); } catch (e) { status(`打开失败：${e.message}`); } };
 $('#file').onchange = async e => { const f = e.target.files[0]; if (f) await load({ content: await f.text(), name: f.name, format: 'markdown' }); e.target.value = ''; };
 let imageFormat = 'markdown';
-function addImage(item) { insert(imageFormat === 'html' ? `<img src="${item.url.replaceAll('&', '&amp;').replaceAll('"', '&quot;')}" alt="图片" width="600" />` : `![图片](${item.url})`); }
-function readImage(file) { const reader = new FileReader(); reader.onload = () => addImage({ url: reader.result }); reader.readAsDataURL(file); }
-async function chooseImage(kind) { imageFormat = kind; try { if (api) { const item = await api.image(); if (item) addImage(item); } else $('#image-file').click(); } catch (e) { status(e.message); } };
-function insertImagePath() {
+function addImage(item, kind = imageFormat) { insert(kind === 'html' ? `<img src="${item.url.replaceAll('&', '&amp;').replaceAll('"', '&quot;')}" alt="图片" width="600" />` : `![图片](<${item.url}>)`); }
+function readImage(file) { const kind = imageFormat, reader = new FileReader(); reader.onload = () => addImage({ url: reader.result }, kind); reader.readAsDataURL(file); }
+async function chooseImage(kind) { imageFormat = kind; try { if (api) { const item = await api.image(kind === 'base64' ? 'base64' : 'path'); if (item) addImage(item); } else $('#image-file').click(); } catch (e) { status(e.message); } };
+function insertImagePath(kind = 'markdown') {
   const d = document.createElement('dialog'); d.className = 'image-path-dialog';
-  d.innerHTML = `<form><h2>插入图片路径</h2><label>图片路径或网址<input name="path" placeholder="images/photo.png 或 https://…" required></label><p>相对路径以当前 Markdown 文件所在目录为起点。</p><div><button type="button" data-browse>选择本地图片</button><button type="button" data-cancel>取消</button><button class="primary" type="submit">插入</button></div></form>`;
+  d.innerHTML = `<form><h2>${kind === 'url' ? '网络 URL' : kind === 'html' ? 'HTML 图片' : 'Markdown 图片'}</h2><label>图片路径或网址<input name="path" placeholder="images/photo.png 或 https://…" required></label><p>本地图片优先使用相对路径；向上超过两级或文档未保存时使用绝对路径。</p><div><button type="button" data-browse>选择本地图片</button><button type="button" data-cancel>取消</button><button class="primary" type="submit">插入</button></div></form>`;
   const input = d.querySelector('input');
-  d.querySelector('[data-browse]').hidden = !api;
+  d.querySelector('[data-browse]').hidden = !api || kind === 'url';
+  if (kind === 'url') input.placeholder = 'https://example.com/photo.png';
+  input.oninput = () => input.setCustomValidity('');
   d.querySelector('[data-browse]').onclick = async () => { try { const item = await api.image('path'); if (item) input.value = item.url; } catch (e) { status(e.message); } };
   d.querySelector('[data-cancel]').onclick = () => d.close();
   d.querySelector('form').onsubmit = e => {
     e.preventDefault(); let url = input.value.trim().replaceAll('\\', '/');
     if (!url) return;
+    if (kind === 'url' && !/^https?:\/\/[^/\s]+/i.test(url)) { input.setCustomValidity('请输入有效的 HTTP 或 HTTPS 图片网址'); input.reportValidity(); return; }
     if (/^[a-z]:\//i.test(url)) url = 'file:///' + url;
     else if (url.startsWith('//')) url = 'file:' + url;
     // Angle-delimited destinations support parentheses; escape whitespace and delimiters.
     url = url.replace(/[ <>\r\n]/g, c => encodeURIComponent(c));
-    d.close(); insert(`![图片](<${url}>)`);
+    d.close(); addImage({ url }, kind);
   };
   d.onclose = () => d.remove(); document.body.append(d); d.showModal(); input.focus();
 }
@@ -243,6 +266,7 @@ $('#live').addEventListener('mousedown', e => {
   e.preventDefault();
   let entry = liveBlocks.find(x => x.item.contains(e.target)), caret;
   const active = $('#live textarea');
+  if (!entry && active) { active.blur(); return; }
   if (entry && active && entry.item.contains(active)) { active.focus(); return; }
   if (!entry && e.clientY > liveBlocks.at(-1).item.getBoundingClientRect().bottom) { entry = liveBlocks.at(-1); caret = contentEnd(entry.block.text); }
   else {
@@ -338,4 +362,18 @@ attachMenu('heading', Array.from({ length: 6 }, (_, i) => [`H${i + 1} · ${i + 1
 attachMenu('code', ['plaintext', 'javascript', 'typescript', 'python', 'java', 'c', 'cpp', 'csharp', 'go', 'rust', 'bash', 'sql', 'json', 'yaml', 'html', 'css'].map(language => [language === 'plaintext' ? '纯文本' : language, () => insert('\n```' + language + '\n', '\n```\n')]));
 attachMenu('math', formulaTemplates.map(([label, value]) => [label, () => insert('\n$$\n' + value + '\n$$\n')]));
 attachMenu('chart', chartTemplates.map(([label, value]) => [label, () => insert('\n```mermaid\n' + value + '\n```\n')]));
-attachMenu('image', [['Markdown 图片', () => chooseImage('markdown')], ['HTML 图片（可调整宽度）', () => chooseImage('html')], ['插入图片路径', insertImagePath]]);
+attachMenu('image', [['Markdown 图片', () => insertImagePath('markdown')], ['HTML <img>（可调整宽度）', () => insertImagePath('html')], ['网络 URL', () => insertImagePath('url')], ['Base64 嵌入图片', () => chooseImage('base64')]]);
+
+$('#table').onclick = () => {
+  const d = document.createElement('dialog'); d.className = 'image-path-dialog';
+  d.innerHTML = `<form><h2>插入表格</h2><label>列数<input name="columns" type="number" min="1" max="20" value="3" required></label><label>数据行数<input name="rows" type="number" min="1" max="100" value="3" required></label><p>包含一行表头，可在插入后编辑内容。</p><div><button type="button">取消</button><button type="submit" class="primary">插入</button></div></form>`;
+  d.querySelector('button').onclick = () => d.close();
+  d.querySelector('form').onsubmit = e => {
+    e.preventDefault(); const columns = +d.querySelector('[name=columns]').value, rows = +d.querySelector('[name=rows]').value;
+    if (!Number.isInteger(columns) || columns < 1 || columns > 20 || !Number.isInteger(rows) || rows < 1 || rows > 100) return;
+    const row = cells => '| ' + cells.join(' | ') + ' |';
+    const text = [row(Array.from({ length: columns }, (_, i) => `列 ${i + 1}`)), row(Array(columns).fill('---')), ...Array.from({ length: rows }, () => row(Array(columns).fill('内容')))];
+    d.close(); insert('\n\n' + text.join('\n') + '\n\n', '', true);
+  };
+  d.onclose = () => d.remove(); document.body.append(d); d.showModal();
+};

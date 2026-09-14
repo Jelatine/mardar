@@ -1,7 +1,8 @@
 import { test, expect, _electron as electron } from '@playwright/test';
-import { mkdtemp, writeFile, readFile, copyFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, writeFile, readFile, copyFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { createServer } from 'node:http';
 import { sample } from '../src/sample.js';
 import { formulaTemplates, chartTemplates } from '../src/templates.js';
@@ -126,7 +127,7 @@ test('new document embeds selected image and handles save cancellation', async (
   const image = path.join(folder, 'picture.svg');
   await writeFile(image, '<svg xmlns="http://www.w3.org/2000/svg" width="70" height="40"><rect width="70" height="40" fill="blue"/></svg>');
   await page.locator('#editor').press('ControlOrMeta+End');
-  await chooseOpen(image); await page.locator('#image').click(); await page.getByRole('menuitem', { name: 'Markdown 图片', exact: true }).click();
+  await chooseOpen(image); await page.locator('#image').click(); await page.getByRole('menuitem', { name: 'Base64 嵌入图片', exact: true }).click();
   await expect(page.locator('#editor')).toHaveValue(/data:image\/svg\+xml;base64,/);
   await expect.poll(() => page.locator('#preview img').evaluate(img => img.naturalWidth)).toBe(70);
   await app.evaluate(({ dialog }) => { dialog.showSaveDialog = async () => ({ canceled: true }); });
@@ -271,8 +272,10 @@ test('insertion menus offer headings, languages, formulas, charts and HTML image
   const image = path.join(folder, 'html.svg');
   await writeFile(image, '<svg xmlns="http://www.w3.org/2000/svg" width="70" height="40"><rect width="70" height="40" fill="blue"/></svg>');
   await chooseOpen(image); await page.locator('#image').click();
-  await page.getByRole('menuitem', { name: 'HTML 图片（可调整宽度）', exact: true }).click();
-  await expect(page.locator('#editor')).toHaveValue(/<img src="data:image/);
+  await page.getByRole('menuitem', { name: 'HTML <img>（可调整宽度）', exact: true }).click();
+  await page.getByRole('button', { name: '选择本地图片', exact: true }).click();
+  await page.getByRole('button', { name: '插入', exact: true }).click();
+  await expect(page.locator('#editor')).toHaveValue(/<img src="file:/);
   await expect.poll(() => page.locator('#preview img').evaluate(el => el.naturalWidth)).toBe(70);
 });
 test('native title controls follow theme and PDF canvas stays white', async () => {
@@ -377,6 +380,8 @@ test('live clicks place the caret and arrows move between paragraphs', async () 
   expect(await page.locator('#live textarea').evaluate(el => el.selectionStart)).toBe(0);
   const pane = await page.locator('#live').boundingBox();
   await page.mouse.click(pane.x + pane.width / 2, pane.y + pane.height - 20);
+  await expect(page.locator('#live textarea')).toHaveCount(0);
+  await page.mouse.click(pane.x + pane.width - 30, pane.y + pane.height - 30);
   await expect(page.locator('#live textarea')).toHaveValue('Last line');
   expect(await page.locator('#live textarea').evaluate(el => el.selectionStart)).toBe(9);
   await page.locator('#live textarea').evaluate(el => el.setSelectionRange(0, 0));
@@ -417,7 +422,7 @@ test('image paths support manual entry, cancellation and relative local files', 
   await writeFile(file, '');
   await writeFile(image, '<svg xmlns="http://www.w3.org/2000/svg" width="30" height="20"></svg>');
   await chooseOpen(file); await page.locator('#open').click();
-  const openPath = async () => { await page.locator('#image').click(); await page.getByRole('menuitem', { name: '插入图片路径', exact: true }).click(); };
+  const openPath = async () => { await page.locator('#image').click(); await page.getByRole('menuitem', { name: 'Markdown 图片', exact: true }).click(); };
   await openPath(); await page.locator('.image-path-dialog input').fill('unused.png');
   await page.getByRole('button', { name: '取消', exact: true }).click();
   await expect(page.locator('#editor')).toHaveValue('');
@@ -437,11 +442,71 @@ test('unsaved live documents insert and render absolute image paths', async () =
   await writeFile(image, '<svg xmlns="http://www.w3.org/2000/svg" width="40" height="20"></svg>');
   await page.locator('button[data-view=live]').click();
   await page.locator('#image').click();
-  await page.getByRole('menuitem', { name: '插入图片路径', exact: true }).click();
+  await page.getByRole('menuitem', { name: 'Markdown 图片', exact: true }).click();
   await chooseOpen(image); await page.getByRole('button', { name: '选择本地图片', exact: true }).click();
   await expect(page.locator('.image-path-dialog input')).toHaveValue(/^file:\/\//);
   await page.getByRole('button', { name: '插入', exact: true }).click();
   await page.locator('#live textarea').press('Escape');
   await expect.poll(() => page.locator('#live img').evaluate(img => img.naturalWidth)).toBe(40);
   await expect(page.locator('.panes')).toHaveAttribute('data-view', 'live');
+});
+
+test('close confirmation cancels, survives canceled saving and saves before closing', async () => {
+  await page.locator('#editor').fill('# 未保存的关闭测试');
+  const close = () => app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].close());
+  await close(); await expect(page.locator('#confirm')).toContainText('关闭前保存更改');
+  await close(); await page.locator('[data-choice=cancel]').click();
+  await expect(page.locator('#editor')).toHaveValue('# 未保存的关闭测试');
+  await close();
+  await app.evaluate(({ dialog }) => { dialog.showSaveDialog = async () => ({ canceled: true }); });
+  await page.locator('[data-choice=save]').click();
+  await expect(page.locator('#confirm')).not.toBeVisible();
+  await expect(page.locator('#dirty')).toHaveText('●');
+  const file = path.join(folder, 'closed.md'); await chooseSave(file); await close();
+  await page.locator('[data-choice=save]').click();
+  await expect.poll(() => readFile(file, 'utf8')).toBe('# 未保存的关闭测试');
+  await expect.poll(() => app.windows().length).toBe(0);
+});
+test('table inserts at the live caret and undo restores the document', async () => {
+  await page.locator('#editor').fill('# 表格测试');
+  await page.locator('button[data-view=live]').click(); await page.locator('#live h1').click();
+  await page.locator('#live textarea').press('End');
+  await page.locator('#table').click();
+  await page.locator('[name=columns]').fill('2'); await page.locator('[name=rows]').fill('4');
+  await page.getByRole('button', { name: '插入', exact: true }).click();
+  await page.locator('#live textarea').press('Escape');
+  await expect(page.locator('#live th')).toHaveCount(2); await expect(page.locator('#live tbody tr')).toHaveCount(4);
+  await page.locator('#undo').click(); await expect(page.locator('#editor')).toHaveValue('# 表格测试');
+});
+test('URL images reject non-network schemes', async () => {
+  await page.locator('#image').click(); await page.getByRole('menuitem', { name: '网络 URL', exact: true }).click();
+  await page.locator('.image-path-dialog input').fill('javascript:alert(1)');
+  await page.getByRole('button', { name: '插入', exact: true }).click();
+  await expect(page.locator('.image-path-dialog')).toBeVisible();
+  await page.locator('.image-path-dialog input').fill('https://example.com/image.png');
+  await page.getByRole('button', { name: '插入', exact: true }).click();
+  await expect(page.locator('#editor')).toHaveValue('![图片](<https://example.com/image.png>)');
+});
+
+test('near image paths are relative and distant paths are absolute', async () => {
+  const directory = path.join(folder, 'a', 'b', 'c'); await mkdir(directory, { recursive: true });
+  const file = path.join(directory, 'note.md'); await writeFile(file, '');
+  await chooseOpen(file); await page.locator('#open').click();
+  const near = path.join(folder, 'a', 'near.svg'), far = path.join(folder, 'far.svg');
+  const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"></svg>';
+  await writeFile(near, svg); await writeFile(far, svg);
+  for (const [image, expected] of [[near, '../../near.svg'], [far, pathToFileURL(far).href]]) {
+    await chooseOpen(image);
+    const result = await page.evaluate(() => window.desktop.image('path'));
+    expect(result.url).toBe(expected);
+  }
+});
+test('discard closes a dirty window without writing a file', async () => {
+  await page.locator('#editor').fill('# 放弃修改');
+  await app.evaluate(({ dialog, BrowserWindow }) => {
+    dialog.showSaveDialog = async () => { throw new Error('Unexpected save'); };
+    BrowserWindow.getAllWindows()[0].close();
+  });
+  await page.locator('[data-choice=discard]').click();
+  await expect.poll(() => app.windows().length).toBe(0);
 });

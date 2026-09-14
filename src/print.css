@@ -41,9 +41,16 @@
   #preview .prose th { color: #0f172a; background: #e2e8f0; font-weight: 700; }
   #preview .prose tbody tr:nth-child(even) td { background: #f8fafc; }
   #preview .prose :is(img,svg) { max-width: 100%; max-height: 226mm; height: auto; object-fit: contain; break-inside: avoid; }
-  #preview .prose .mermaid { margin: 4mm 0 6mm; padding: 4mm; text-align: center; background: #f8fbff; border: 1px solid #bfdbfe; border-radius: 8px; break-inside: avoid; white-space: normal; }
+  #preview .prose .mermaid { margin: 4mm 0 6mm; padding: 5mm; text-align: center; background: linear-gradient(180deg, #f8fbff, #eff6ff); border: 1px solid #bfdbfe; border-radius: 8px; break-inside: avoid; white-space: normal; }
   #preview .prose .katex-display { overflow: visible; padding: 2mm 0; break-inside: avoid; }
 }
 @media print {
   #preview .prose .katex svg { max-width: none; max-height: none; height: inherit; }
+}
+
+@media print {
+  #preview .prose .mermaid svg { display: block; margin: 0 auto; max-width: 100% !important; max-height: 210mm; width: auto; height: auto; }
+  #preview .prose .mermaid .node rect { rx: 7px; ry: 7px; }
+  #preview .prose .mermaid :is(.node rect,.node polygon,.node circle,.node path) { stroke-width: 1.5px; }
+  #preview .prose .mermaid text { font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", "Segoe UI", sans-serif !important; }
 }
