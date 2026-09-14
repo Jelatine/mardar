@@ -510,3 +510,35 @@ test('discard closes a dirty window without writing a file', async () => {
   await page.locator('[data-choice=discard]').click();
   await expect.poll(() => app.windows().length).toBe(0);
 });
+
+test('document anchors scroll in reading, split and live modes', async () => {
+  const source = '- [1. 简介](#1-简介)\n- [重复](#1-简介-1)\n- [深层](#深层)\n\n' + '占位段落。\n\n'.repeat(45) + '# 1. 简介\n\n正文\n\n# 1. 简介\n\n###### 深层\n\n' + '结尾\n\n'.repeat(20);
+  await page.locator('#editor').fill(source);
+  await expect(page.locator('#preview h1').first()).toHaveAttribute('id', '1-简介');
+  for (const mode of ['read', 'split', 'live']) {
+    await page.locator(`button[data-view=${mode}]`).click();
+    const host = mode === 'live' ? '#live' : '#preview';
+    await expect(page.locator(`${host} h1`).nth(1)).toHaveAttribute('id', '1-简介-1');
+    for (const label of ['1. 简介', '重复', '深层']) {
+      await page.locator(host).evaluate(el => { el.style.scrollBehavior = 'auto'; el.scrollTop = 0; });
+      await page.locator(host).getByRole('link', { name: label, exact: true }).click();
+      await expect.poll(() => page.locator(host).evaluate(el => el.scrollTop)).toBeGreaterThan(500);
+      if (mode === 'live') await expect(page.locator('#live textarea')).toHaveCount(0);
+    }
+  }
+});
+
+test('Mermaid follows light and dark themes in preview and live mode', async () => {
+  await page.locator('#editor').fill('```mermaid\nflowchart LR\n A[开始] --> B[完成]\n```');
+  const node = page.locator('#preview .mermaid .node rect').first();
+  await expect(node).toBeVisible();
+  const light = await node.evaluate(el => getComputedStyle(el).fill);
+  await page.locator('button[data-view=live]').click();
+  await expect(page.locator('#live .mermaid svg')).toBeVisible();
+  await page.locator('#theme').click();
+  await expect.poll(() => node.evaluate(el => getComputedStyle(el).fill)).not.toBe(light);
+  await expect.poll(() => page.locator('#live .mermaid .node rect').first().evaluate(el => getComputedStyle(el).fill)).not.toBe(light);
+  await page.locator('#theme').click();
+  await expect.poll(() => node.evaluate(el => getComputedStyle(el).fill)).toBe(light);
+  await expect.poll(() => page.locator('#live .mermaid .node rect').first().evaluate(el => getComputedStyle(el).fill)).toBe(light);
+});

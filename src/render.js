@@ -4,7 +4,38 @@ import katex from 'katex';
 import hljs from 'highlight.js';
 import DOMPurify from 'dompurify';
 import mermaid from 'mermaid';
-mermaid.initialize({ startOnLoad: false, securityLevel: 'strict', theme: 'base', fontFamily: 'PingFang SC, Microsoft YaHei, Noto Sans CJK SC, Segoe UI, sans-serif', themeVariables: { primaryColor: '#ffffff', primaryTextColor: '#1e3a5f', primaryBorderColor: '#3b82f6', lineColor: '#2563eb', secondaryColor: '#eff6ff', tertiaryColor: '#f8fbff', edgeLabelBackground: '#eff6ff', clusterBkg: '#eff6ff', clusterBorder: '#bfdbfe', fontSize: '16px' }, htmlLabels: false, flowchart: { htmlLabels: false, curve: 'linear', nodeSpacing: 35, rankSpacing: 45, padding: 18 } });
+const diagramFont = 'PingFang SC, Microsoft YaHei, Noto Sans CJK SC, Segoe UI, sans-serif';
+let diagramQueue = Promise.resolve();
+function renderDiagram(id, source, dark) {
+  const pending = diagramQueue.then(async () => {
+    mermaid.initialize({
+      startOnLoad: false, securityLevel: 'strict', theme: 'base', fontFamily: diagramFont,
+      themeVariables: {
+        darkMode: dark, background: dark ? '#202820' : '#ffffff',
+        primaryColor: dark ? '#344b3c' : '#edf5ef', primaryTextColor: dark ? '#e0ecdf' : '#293d2d',
+        primaryBorderColor: dark ? '#7eaf8e' : '#6c977a', lineColor: dark ? '#a0bea7' : '#64856d',
+        secondaryColor: dark ? '#39463b' : '#f4f6ed', tertiaryColor: dark ? '#2b382e' : '#f7faf5',
+        textColor: dark ? '#e0ecdf' : '#293d2d', edgeLabelBackground: dark ? '#273329' : '#f7faf5',
+        clusterBkg: dark ? '#273329' : '#f7faf5', clusterBorder: dark ? '#536b57' : '#cadbcb', fontSize: '14px',
+      },
+      htmlLabels: false, flowchart: { htmlLabels: false, curve: 'basis', nodeSpacing: 40, rankSpacing: 50, padding: 18 },
+    });
+    return mermaid.render(id, source);
+  });
+  diagramQueue = pending.catch(() => {});
+  return pending;
+}
+
+export function assignHeadingIds(root) {
+  const used = new Set();
+  for (const heading of root.querySelectorAll('h1,h2,h3,h4,h5,h6')) {
+    const slug = heading.textContent.trim().toLowerCase().replace(/[^\p{L}\p{N}\p{M}_\-\s]/gu, '').replace(/\s/g, '-') || 'section';
+    let id = slug, suffix = 0;
+    while (used.has(id)) id = `${slug}-${++suffix}`;
+    used.add(id); heading.id = id;
+  }
+}
+
 const md = new MarkdownIt({ html: true, linkify: true, typographer: true, highlight(code, lang) {
   return lang && hljs.getLanguage(lang) ? hljs.highlight(code, { language: lang }).value : md.utils.escapeHtml(code);
 }}).use(texmath, { engine: katex, delimiters: 'dollars', katexOptions: { throwOnError: false, trust: false } });
@@ -25,6 +56,7 @@ const fence = md.renderer.rules.fence;
 md.renderer.rules.fence = (tokens, i, options, env, self) => tokens[i].info.trim() === 'mermaid' ? `<pre class="mermaid" data-source-line="${tokens[i].map[0]}" data-source-end="${tokens[i].map[1]}">${md.utils.escapeHtml(tokens[i].content)}</pre>` : fence(tokens, i, options, env, self);
 let counter = 0;
 export async function renderDocument(source, format, base) {
+  const dark = document.body.classList.contains('dark');
   const root = document.createElement('article'); root.className = 'prose';
   root.innerHTML = DOMPurify.sanitize(md.render(source), { ADD_TAGS: ['eq', 'eqn', 'annotation', 'semantics'], ADD_ATTR: ['encoding'], FORBID_TAGS: ['style', 'input', 'form'], FORBID_ATTR: ['style', 'srcset'] });
   const raw = document.createElement('template'); raw.innerHTML = DOMPurify.sanitize(md.render(source));
@@ -54,11 +86,19 @@ export async function renderDocument(source, format, base) {
   }
   for (const node of root.querySelectorAll('.mermaid')) {
     const id = `diagram-${++counter}`;
-    try { const { svg } = await mermaid.render(id, node.textContent); node.innerHTML = DOMPurify.sanitize(svg, { USE_PROFILES: { svg: true, svgFilters: true, html: true } }); }
+    try { const { svg } = await renderDiagram(id, node.textContent, dark); node.innerHTML = DOMPurify.sanitize(svg, { USE_PROFILES: { svg: true, svgFilters: true, html: true } }); }
     catch { document.getElementById(`d${id}`)?.remove(); node.className = 'diagram-error'; node.textContent = '图表语法有误，请检查 Mermaid 代码。'; }
   }
-  root.querySelectorAll('h1,h2,h3').forEach((el, i) => el.id = `heading-${i}`);
-  root.querySelectorAll('a').forEach(a => { a.addEventListener('click', event => { event.preventDefault(); if (a.hash) document.getElementById(a.hash.slice(1))?.scrollIntoView({ behavior: 'smooth' }); }); });
+  assignHeadingIds(root);
+  root.querySelectorAll('a').forEach(a => { a.addEventListener('click', event => {
+    event.preventDefault();
+    const href = a.getAttribute('href');
+    if (!href?.startsWith('#')) return;
+    let id;
+    try { id = decodeURIComponent(href.slice(1)); } catch { return; }
+    const host = a.closest('#live') || root;
+    [...host.querySelectorAll('[id]')].find(el => el.id === id)?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+  }); });
   return root;
 }
 

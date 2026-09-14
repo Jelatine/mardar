@@ -35,3 +35,11 @@ dialog.about{width:min(460px,calc(100vw - 40px))}.about-head{display:flex;align-
 .image-path-dialog{width:min(540px,90vw)}.image-path-dialog label{display:block}.image-path-dialog input{display:block;width:100%;box-sizing:border-box;margin:12px 0;padding:10px;border:1px solid var(--muted);border-radius:6px;background:var(--soft);color:inherit}.image-path-dialog p{font-size:13px;color:var(--muted)}
 .image-path-dialog form>div{display:flex;justify-content:flex-end;gap:8px;margin-top:24px;flex-wrap:wrap}
 #confirm{width:min(480px,90vw)}#confirm p{line-height:1.7;overflow-wrap:anywhere}#confirm>div{flex-wrap:wrap}
+
+/* Diagrams share the document palette while retaining author-defined node colors. */
+.prose .mermaid{margin:22px 0;padding:22px 18px;background:var(--soft);border:1px solid var(--line);border-radius:12px;box-shadow:0 3px 12px #20382806;white-space:normal;text-align:center;overflow:auto}
+.prose .mermaid svg{display:block;margin:auto;max-width:100%;height:auto}
+.prose .mermaid .node rect{rx:8px;ry:8px}
+.prose .mermaid .node :is(rect,polygon,circle,path){stroke-width:1.4px}
+.prose :is(h1,h2,h3,h4,h5,h6){scroll-margin-top:20px}
+.dark .prose a{color:#9dceac}

@@ -2,7 +2,7 @@ import './style.css';
 import 'katex/dist/katex.min.css';
 import 'highlight.js/styles/github.css';
 import './print.css';
-import { renderDocument, sourceBlocks } from './render';
+import { renderDocument, sourceBlocks, assignHeadingIds } from './render';
 import { formulaTemplates, chartTemplates } from './templates';
 import appIcon from '../build/icon.svg';
 const api = window.desktop;
@@ -62,7 +62,7 @@ document.querySelectorAll('[data-prefix]').forEach(b => b.onclick = () => insert
 $('#link').onclick = () => insert('[', '](https://example.com)');
 document.querySelectorAll('[data-view]').forEach(b => { if (b.tagName !== 'BUTTON') return; b.onclick = () => { breakHistoryGroup(); $('.panes').dataset.view = b.dataset.view; if (b.dataset.view === 'live') renderLive(editor.value.trim() ? undefined : 0); document.querySelectorAll('.view-tools [data-view]').forEach(x => x.classList.toggle('selected', x === b)); }; });
 $('#toggle-sidebar').onclick = () => { const hidden = $('#app').classList.toggle('sidebar-hidden'); $('#toggle-sidebar').setAttribute('aria-expanded', String(!hidden)); $('#toggle-sidebar').title = $('#toggle-sidebar').ariaLabel = hidden ? '展开左侧工具栏' : '隐藏左侧工具栏'; };
-$('#theme').onclick = async () => { const dark = document.body.classList.toggle('dark'); await api?.theme(dark); };
+$('#theme').onclick = async () => { const dark = document.body.classList.toggle('dark'); liveCache.clear(); await Promise.all([render(), renderLive(), api?.theme(dark)]); };
 $('#undo').onclick = () => undoRedo(); $('#redo').onclick = () => undoRedo(true);
 $('#undo').disabled = $('#redo').disabled = true;
 editor.addEventListener('blur', breakHistoryGroup);
@@ -191,7 +191,7 @@ const contentEnd = text => text.replace(/\s+$/, '').length;
 async function renderLive(focus) {
   const generation = ++liveGeneration, host = $('#live'), entries = [], cache = new Map(), empty = !editor.value.trim();
   for (const block of sourceBlocks(editor.value)) {
-    const key = `${base}\n${block.text}`;
+    const key = `${document.body.classList.contains('dark')}\n${base}\n${block.text}`;
     let view = liveCache.get(key)?.find(candidate => !entries.some(entry => entry.view === candidate));
     if (!view && empty) { view = document.createElement('p'); view.className = 'live-placeholder'; view.textContent = livePlaceholder; }
     if (!view) { view = await renderDocument(block.text, 'markdown', base); if (generation !== liveGeneration) return; }
@@ -207,7 +207,7 @@ async function renderLive(focus) {
   // Disable its handler before committing so it cannot start a competing render.
   const active = host.querySelector('textarea'); if (active) active.onblur = null;
   entries.forEach(entry => entry.item.append(entry.view));
-  host.replaceChildren(...entries.map(entry => entry.item)); host.scrollTop = scroll;
+  host.replaceChildren(...entries.map(entry => entry.item)); assignHeadingIds(host); host.scrollTop = scroll;
   if (focus != null) { const entry = entries.findLast(x => x.block.start <= focus) || entries[0]; activateLive(entry, focus - entry.block.start); }
 }
 function activateLive(entry, caret) {
@@ -262,7 +262,7 @@ function caretFromPoint({ block, view }, x, y) {
 }
 $('#live').addEventListener('mousedown', e => {
   const host = e.currentTarget, bounds = host.getBoundingClientRect();
-  if (e.button !== 0 || e.target.closest('textarea') || e.clientX >= bounds.left + host.clientWidth || !liveBlocks.length) return;
+  if (e.button !== 0 || e.target.closest('textarea, a') || e.clientX >= bounds.left + host.clientWidth || !liveBlocks.length) return;
   e.preventDefault();
   let entry = liveBlocks.find(x => x.item.contains(e.target)), caret;
   const active = $('#live textarea');
