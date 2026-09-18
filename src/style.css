@@ -63,8 +63,8 @@ dialog.about{width:min(460px,calc(100vw - 40px))}.about-head{display:flex;align-
 .search-bar button{display:grid;place-items:center;width:26px;height:26px;padding:5px;border-radius:3px}
 .search-bar button svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
 .search-bar button:disabled{opacity:.35;background:transparent}
-#search-count{flex:0 1 auto;max-width:140px;color:var(--muted);font-size:11px;line-height:16px}
-@media(max-width:600px){.search-bar{right:6px;max-width:calc(100% - 12px);gap:4px;flex-wrap:wrap}.search-field{flex-basis:calc(100% - 90px)}#search-count{order:3;max-width:none;width:100%}#search-count:empty{display:none}}
+#search-count{flex:0 0 140px;min-width:0;overflow-wrap:anywhere;color:var(--muted);font-size:11px;line-height:16px}
+@media(max-width:600px){.search-bar{right:6px;max-width:calc(100% - 12px);gap:4px;flex-wrap:wrap}.search-field{flex-basis:calc(100% - 90px)}#search-count{order:3;flex-basis:100%;width:100%}#search-count:empty{display:none}}
 ::highlight(search-results){background:#ffe18a;color:#262616}::highlight(search-current){background:#ef9d36;color:#191609}
 @media print{.search-bar{display:none}}
 
