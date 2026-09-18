@@ -17,7 +17,7 @@ jobs:
       matrix:
         include:
           - os: macos-latest
-            args: --mac --x64 --arm64
+            args: --mac dmg --arm64
           - os: windows-latest
             args: --win --x64
           - os: ubuntu-latest
@@ -48,7 +48,6 @@ jobs:
           if-no-files-found: error
           path: |
             release/*.dmg
-            release/*.zip
             release/*.exe
             release/*.AppImage
 
