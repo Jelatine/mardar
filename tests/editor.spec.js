@@ -542,3 +542,53 @@ test('Mermaid follows light and dark themes in preview and live mode', async () 
   await expect.poll(() => node.evaluate(el => getComputedStyle(el).fill)).toBe(light);
   await expect.poll(() => page.locator('#live .mermaid .node rect').first().evaluate(el => getComputedStyle(el).fill)).toBe(light);
 });
+
+test('text search supports options, navigation and invalid regex', async () => {
+  await page.locator('#editor').fill('Cat cat scatter cat. a+b\n猫 猫咪\n123 456');
+  await page.keyboard.press('Control+f');
+  const query = page.locator('#search-query'), count = page.locator('#search-count');
+  await query.fill('cat');
+  await expect(count).toHaveText('1 / 4');
+  await query.press('Enter'); await expect(count).toHaveText('2 / 4');
+  await query.press('Shift+Enter'); await expect(count).toHaveText('1 / 4');
+  await page.locator('#search-word').check(); await expect(count).toHaveText('1 / 3');
+  await page.locator('#search-case').check(); await expect(count).toHaveText('1 / 2');
+  await query.fill('猫'); await expect(count).toHaveText('1 / 1');
+  await page.locator('#search-word').uncheck();
+  await query.fill('a+b'); await expect(count).toHaveText('1 / 1');
+  await page.locator('#search-regex').check();
+  await query.fill('\\d+'); await expect(count).toHaveText('1 / 2');
+  await query.fill('['); await expect(count).toHaveText('正则表达式无效');
+  await query.fill('(?=cat)'); await expect(count).toHaveText('1 / 3');
+  await query.press('Escape'); await expect(query).toBeHidden();
+  await expect(page.locator('#editor')).toHaveValue('Cat cat scatter cat. a+b\n猫 猫咪\n123 456');
+});
+
+test('text search highlights rendered text in reading and live views', async () => {
+  await page.locator('#editor').fill('# Heading\n\nHello **world** and world.');
+  await expect(page.locator('#preview strong')).toHaveText('world');
+  for (const view of ['read', 'live']) {
+    await page.locator(`button[data-view=${view}]`).click();
+    await page.keyboard.press('Control+f');
+    await page.locator('#search-query').fill('world');
+    await expect(page.locator('#search-count')).toHaveText('1 / 2');
+    expect(await page.evaluate(() => CSS.highlights.get('search-results').size)).toBe(2);
+    await page.locator('#search-query').press('Escape');
+    expect(await page.evaluate(() => CSS.highlights.has('search-results'))).toBe(false);
+  }
+});
+
+test('text search refreshes after edits and stops expensive regex', async () => {
+  await page.locator('#editor').fill('hello');
+  await page.keyboard.press('Control+f');
+  await page.locator('#search-query').fill('hello');
+  await expect(page.locator('#search-count')).toHaveText('1 / 1');
+  await page.locator('#editor').fill('hello hello');
+  await expect(page.locator('#search-count')).toHaveText('1 / 2');
+  await page.locator('#editor').fill('a'.repeat(100) + '!');
+  await page.locator('#search-regex').check();
+  await page.locator('#search-query').fill('(a+)+$');
+  await expect(page.locator('#search-count')).toHaveText('搜索耗时过长，请简化表达式');
+  await page.locator('#search-query').fill('!');
+  await expect(page.locator('#search-count')).toHaveText('1 / 1');
+});

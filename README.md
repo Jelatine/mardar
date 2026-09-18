@@ -36,6 +36,7 @@
 - 深色主题、大纲导航、字符统计。
 - **关于**：显示版本（Git tag）、作者、仓库地址、UTC 编译日期和完整提交哈希。
 - **检查更新**：启动后自动检查 GitHub 最新发布，发现新版本时在状态栏提示；也可在“关于 Mardar”或 macOS 菜单“检查更新…”中手动检查。
+- `Ctrl/Cmd+F` 打开文本搜索，支持全词匹配、大小写匹配和正则表达式；`Enter` / `Shift+Enter` 切换下一个 / 上一个结果，`Esc` 关闭。编辑和分栏视图搜索 Markdown 源码，阅读和即时编辑视图搜索渲染后的文本。最多显示 10,000 个结果，耗时过长的正则会自动停止。
 - `Ctrl/Cmd+S` 保存、`Ctrl/Cmd+Shift+S` 另存、`Ctrl/Cmd+O` 打开、`Ctrl/Cmd+N` 新建、`Ctrl/Cmd+B/I` 粗体/斜体、`Ctrl/Cmd+Z` / `Ctrl/Cmd+Shift+Z` 撤销/重做。
 
 支持 Markdown 内嵌 HTML（例如 `<img src="doc/plan_wall_step1.png" style="zoom:60%;" />`），图片允许安全的缩放和尺寸样式，脚本及页面定位样式会被过滤。外部链接不会在编辑器内导航。数学、图表及高亮资源随应用打包，可离线使用；网络图片需要联网。

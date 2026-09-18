@@ -1,4 +1,5 @@
 import './style.css';
+import { setupSearch } from './search';
 import 'katex/dist/katex.min.css';
 import 'highlight.js/styles/github.css';
 import './print.css';
@@ -22,10 +23,11 @@ if (api) {
   }).observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['open'] });
 }
 const editor = $('#editor'); editor.value = ''; editor.placeholder = '开始写作…';
+const refreshSearch = setupSearch(editor);
 
 function status(text) { $('#status').textContent = text; }
 function metadata() { $('#name').textContent = name; $('#dirty').textContent = editor.value !== saved ? '●' : ''; document.title = `${editor.value !== saved ? '● ' : ''}${name} · Mardar`; api?.dirty(editor.value !== saved); $('#count').textContent = `${editor.value.replace(/\s/g, '').length.toLocaleString()} 字符`; }
-function render() { const id = ++version; rendering = renderDocument(editor.value, format, base).then(root => { if (id !== version) return; $('#preview').replaceChildren(root); $('#outline').replaceChildren(); root.querySelectorAll('h1,h2,h3').forEach(h => { const b = document.createElement('button'); b.textContent = h.textContent; b.className = h.tagName.toLowerCase(); b.onclick = () => { if ($('.panes').dataset.view === 'live') { const headings = [...$('#live').querySelectorAll('h1,h2,h3')]; headings[[...root.querySelectorAll('h1,h2,h3')].indexOf(h)]?.scrollIntoView({ block: 'start', behavior: 'smooth' }); } else h.scrollIntoView({ block: 'start', behavior: 'smooth' }); }; $('#outline').append(b); }); }); return rendering; }
+function render() { const id = ++version; rendering = renderDocument(editor.value, format, base).then(root => { if (id !== version) return; $('#preview').replaceChildren(root); $('#outline').replaceChildren(); root.querySelectorAll('h1,h2,h3').forEach(h => { const b = document.createElement('button'); b.textContent = h.textContent; b.className = h.tagName.toLowerCase(); b.onclick = () => { if ($('.panes').dataset.view === 'live') { const headings = [...$('#live').querySelectorAll('h1,h2,h3')]; headings[[...root.querySelectorAll('h1,h2,h3')].indexOf(h)]?.scrollIntoView({ block: 'start', behavior: 'smooth' }); } else h.scrollIntoView({ block: 'start', behavior: 'smooth' }); }; $('#outline').append(b); }); refreshSearch(); }); return rendering; }
 let history = [''], historyIndex = 0, editGroup = null;
 function breakHistoryGroup() { editGroup = null; }
 function changed(event) {
@@ -60,7 +62,7 @@ function insertHeading(level) {
 document.querySelectorAll('[data-wrap]').forEach(b => b.onclick = () => insert(b.dataset.wrap, b.dataset.wrap));
 document.querySelectorAll('[data-prefix]').forEach(b => b.onclick = () => insert(b.dataset.prefix));
 $('#link').onclick = () => insert('[', '](https://example.com)');
-document.querySelectorAll('[data-view]').forEach(b => { if (b.tagName !== 'BUTTON') return; b.onclick = () => { breakHistoryGroup(); $('.panes').dataset.view = b.dataset.view; if (b.dataset.view === 'live') renderLive(editor.value.trim() ? undefined : 0); document.querySelectorAll('.view-tools [data-view]').forEach(x => x.classList.toggle('selected', x === b)); }; });
+document.querySelectorAll('[data-view]').forEach(b => { if (b.tagName !== 'BUTTON') return; b.onclick = () => { breakHistoryGroup(); $('.panes').dataset.view = b.dataset.view; if (b.dataset.view === 'live') renderLive(editor.value.trim() ? undefined : 0); document.querySelectorAll('.view-tools [data-view]').forEach(x => x.classList.toggle('selected', x === b)); refreshSearch(); }; });
 $('#toggle-sidebar').onclick = () => { const hidden = $('#app').classList.toggle('sidebar-hidden'); $('#toggle-sidebar').setAttribute('aria-expanded', String(!hidden)); $('#toggle-sidebar').title = $('#toggle-sidebar').ariaLabel = hidden ? '展开左侧工具栏' : '隐藏左侧工具栏'; };
 $('#theme').onclick = async () => { const dark = document.body.classList.toggle('dark'); liveCache.clear(); await Promise.all([render(), renderLive(), api?.theme(dark)]); };
 $('#undo').onclick = () => undoRedo(); $('#redo').onclick = () => undoRedo(true);
@@ -126,7 +128,7 @@ $('#image-file').onchange = e => { if (e.target.files[0]) readImage(e.target.fil
 editor.addEventListener('dragover', e => e.preventDefault()); editor.addEventListener('drop', e => { e.preventDefault(); for (const f of e.dataTransfer.files) if (f.type.startsWith('image/')) readImage(f); });
 editor.addEventListener('paste', e => { const images = [...e.clipboardData.files].filter(f => f.type.startsWith('image/')); if (images.length) { e.preventDefault(); images.forEach(readImage); } });
 $('#pdf').onclick = async () => { const button = $('#pdf'); button.disabled = true; status('正在排版 PDF…'); try { clearTimeout(timer); await render(); await document.fonts.ready; await Promise.all([...$('#preview').querySelectorAll('img')].map(img => img.decode().catch(() => {}))); if (api) { const path = await api.pdf(); status(path ? `PDF 已导出：${path}` : '已取消导出'); } else { window.print(); status('已打开打印对话框，请选择保存为 PDF'); } } catch (e) { status(`导出失败：${e.message}`); } finally { button.disabled = false; } };
-document.addEventListener('keydown', e => { if (!(e.metaKey || e.ctrlKey)) return; const key = e.key.toLowerCase(); if (key === 'z' || key === 'y') { e.preventDefault(); undoRedo(key === 'y' || e.shiftKey); return; } if (['s', 'o', 'n', 'b', 'i'].includes(key)) { e.preventDefault(); if (key === 's') save(e.shiftKey); if (key === 'o') $('#open').click(); if (key === 'n') $('#new').click(); if (key === 'b') document.querySelectorAll('[data-wrap]')[0].click(); if (key === 'i') document.querySelectorAll('[data-wrap]')[1].click(); } });
+document.addEventListener('keydown', e => { if (!(e.metaKey || e.ctrlKey) || e.target.closest('.search-bar')) return; const key = e.key.toLowerCase(); if (key === 'z' || key === 'y') { e.preventDefault(); undoRedo(key === 'y' || e.shiftKey); return; } if (['s', 'o', 'n', 'b', 'i'].includes(key)) { e.preventDefault(); if (key === 's') save(e.shiftKey); if (key === 'o') $('#open').click(); if (key === 'n') $('#new').click(); if (key === 'b') document.querySelectorAll('[data-wrap]')[0].click(); if (key === 'i') document.querySelectorAll('[data-wrap]')[1].click(); } });
 window.addEventListener('beforeunload', e => { if (!api && editor.value !== saved) { e.preventDefault(); e.returnValue = ''; } });
 metadata(); render().catch(e => status(e.message));
 
@@ -207,7 +209,7 @@ async function renderLive(focus) {
   // Disable its handler before committing so it cannot start a competing render.
   const active = host.querySelector('textarea'); if (active) active.onblur = null;
   entries.forEach(entry => entry.item.append(entry.view));
-  host.replaceChildren(...entries.map(entry => entry.item)); assignHeadingIds(host); host.scrollTop = scroll;
+  host.replaceChildren(...entries.map(entry => entry.item)); assignHeadingIds(host); host.scrollTop = scroll; refreshSearch();
   if (focus != null) { const entry = entries.findLast(x => x.block.start <= focus) || entries[0]; activateLive(entry, focus - entry.block.start); }
 }
 function activateLive(entry, caret) {

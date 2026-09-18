@@ -43,3 +43,8 @@ dialog.about{width:min(460px,calc(100vw - 40px))}.about-head{display:flex;align-
 .prose .mermaid .node :is(rect,polygon,circle,path){stroke-width:1.4px}
 .prose :is(h1,h2,h3,h4,h5,h6){scroll-margin-top:20px}
 .dark .prose a{color:#9dceac}
+
+.search-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 16px;border-bottom:1px solid var(--line);background:var(--bg);flex-shrink:0;font-size:12px}
+.search-bar[hidden]{display:none}.search-bar>input{flex:1;min-width:140px;padding:7px 10px;border:1px solid var(--line);border-radius:5px;background:var(--soft);color:inherit}.search-bar label{display:flex;align-items:center;gap:3px;white-space:nowrap}.search-bar button{padding:5px 9px}.search-bar button:disabled{opacity:.4}#search-count{color:var(--muted)}
+::highlight(search-results){background:#ffe18a;color:#262616}::highlight(search-current){background:#ef9d36;color:#191609}
+@media print{.search-bar{display:none}}
