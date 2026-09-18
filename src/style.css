@@ -84,3 +84,11 @@ dialog.about{width:min(460px,calc(100vw - 40px))}.about-head{display:flex;align-
 #recent summary:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
 
 .toolbar-end{display:flex;align-items:center;gap:12px;margin-left:auto;flex-shrink:0}.toolbar-actions{display:flex;align-items:center;gap:3px;padding-left:12px;border-left:1px solid var(--line)}.toolbar-actions button{display:grid;place-items:center;width:30px;height:30px;padding:6px;color:var(--muted)}#search-toggle svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+
+/* Match backgrounds follow the source textarea without intercepting editing. */
+.source-search-host{position:relative;display:flex;flex:1;min-height:0;min-width:0}
+.source-search-host>textarea{position:relative;z-index:1;margin:0}
+.source-search-overlay{position:absolute;top:0;left:0;overflow:hidden;white-space:pre-wrap;overflow-wrap:break-word;color:transparent;pointer-events:none}
+.source-search-overlay mark{color:transparent;background:#ffe18a}
+.source-search-overlay mark.search-current{background:#ef9d36}
+@media print{.source-search-overlay{display:none}}

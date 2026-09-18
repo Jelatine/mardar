@@ -603,3 +603,36 @@ test('text search refreshes after edits and stops expensive regex', async () => 
   await page.locator('#search-query').fill('!');
   await expect(page.locator('#search-count')).toHaveText('1 / 1');
 });
+
+for (const view of ['split', 'edit']) {
+  test(`text search keeps source matches highlighted in ${view} view`, async () => {
+    await page.locator(`button[data-view=${view}]`).click();
+    const editor = page.locator('#editor'), overlay = page.locator('.source-search-overlay');
+    await editor.fill('hello\t你好 ' + 'wrapped text '.repeat(30) + '\n' + 'line\n'.repeat(80) + 'hello <b>');
+    await page.locator('#search-toggle').click();
+    await page.locator('#search-query').fill('hello');
+    await expect(page.locator('#search-count')).toHaveText('1 / 2');
+    await expect(page.locator('#search-query')).toBeFocused();
+    await expect(overlay).toBeVisible();
+    await expect(overlay.locator('mark')).toHaveCount(2);
+    await expect(overlay.locator('mark').first()).toHaveClass('search-current');
+    expect(await overlay.locator('mark').first().evaluate(el => getComputedStyle(el).backgroundColor)).toBe('rgb(239, 157, 54)');
+    await page.locator('#search-query').press('Enter');
+    await expect(overlay.locator('mark').last()).toHaveClass('search-current');
+    await expect.poll(() => page.evaluate(() => {
+      const input = document.querySelector('#editor'), layer = document.querySelector('.source-search-overlay');
+      const mark = layer.querySelector('.search-current').getBoundingClientRect(), bounds = input.getBoundingClientRect();
+      return input.scrollTop > 0 && Math.abs(input.scrollTop - layer.scrollTop) < 1 && mark.top >= bounds.top && mark.bottom <= bounds.bottom;
+    })).toBe(true);
+    await editor.fill('hello updated');
+    await expect(page.locator('#search-count')).toHaveText('1 / 1');
+    await expect(overlay.locator('mark')).toHaveCount(1);
+    await page.locator('#search-query').fill('missing');
+    await expect(page.locator('#search-count')).toHaveText('无匹配结果');
+    await expect(overlay).toBeHidden();
+    await page.locator('#search-query').fill('hello');
+    await expect(overlay).toBeVisible();
+    await page.locator('#search-query').press('Escape');
+    await expect(overlay).toBeHidden();
+  });
+}

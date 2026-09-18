@@ -11,7 +11,35 @@ export function setupSearch(editor) {
   const query = bar.querySelector('#search-query'), count = bar.querySelector('#search-count');
   const prev = bar.querySelector('#search-prev'), next = bar.querySelector('#search-next');
   let worker, timeout, matches = [], index = -1, nodes = [], source = false, previousFocus;
-  function clear() { CSS.highlights?.delete('search-results'); CSS.highlights?.delete('search-current'); }
+  // Native textarea selections disappear when the find field owns focus.
+  // Paint match backgrounds behind the transparent textarea instead.
+  const sourceHost = document.createElement('div'); sourceHost.className = 'source-search-host';
+  editor.before(sourceHost);
+  const overlay = document.createElement('div'); overlay.className = 'source-search-overlay';
+  overlay.setAttribute('aria-hidden', 'true'); overlay.hidden = true;
+  sourceHost.append(overlay, editor);
+  function syncOverlay() {
+    const css = getComputedStyle(editor);
+    Object.assign(overlay.style, { width: `${editor.clientWidth}px`, height: `${editor.clientHeight}px`, font: css.font, padding: css.padding, tabSize: css.tabSize, letterSpacing: css.letterSpacing });
+    overlay.scrollTop = editor.scrollTop; overlay.scrollLeft = editor.scrollLeft;
+  }
+  editor.addEventListener('scroll', syncOverlay);
+  new ResizeObserver(syncOverlay).observe(editor);
+  function clear() {
+    CSS.highlights?.delete('search-results'); CSS.highlights?.delete('search-current');
+    overlay.hidden = true; overlay.replaceChildren();
+  }
+  function highlightSource() {
+    const fragments = document.createDocumentFragment(); let offset = 0;
+    matches.forEach(([start, end], i) => {
+      fragments.append(document.createTextNode(editor.value.slice(offset, start)));
+      const mark = document.createElement('mark'); mark.textContent = editor.value.slice(start, end);
+      if (i === index) mark.className = 'search-current';
+      fragments.append(mark); offset = end;
+    });
+    fragments.append(document.createTextNode(editor.value.slice(offset) + '\n'));
+    overlay.replaceChildren(fragments); overlay.hidden = false; syncOverlay();
+  }
   function stop() { worker?.terminate(); worker = null; clearTimeout(timeout); }
   function rangeFor([start, end]) {
     const a = nodes.find(n => n.end > start) || nodes.at(-1);
@@ -24,6 +52,7 @@ export function setupSearch(editor) {
     count.textContent = matches.length ? `${index + 1} / ${matches.length}${matches.length === 10000 ? '+' : ''}` : (query.value ? '无匹配结果' : '请输入搜索文本');
     if (!matches.length) return;
     if (source) {
+      highlightSource();
       if (!scroll) return;
       const [start, end] = matches[index]; editor.setSelectionRange(start, end);
       // A mirror measures wrapped lines without moving focus out of the search field.
@@ -31,7 +60,7 @@ export function setupSearch(editor) {
       Object.assign(mirror.style, { position: 'absolute', visibility: 'hidden', whiteSpace: 'pre-wrap', overflowWrap: 'break-word', width: `${editor.clientWidth}px`, font: css.font, padding: css.padding, boxSizing: 'border-box', tabSize: css.tabSize });
       mirror.append(document.createTextNode(editor.value.slice(0, start)));
       const marker = document.createElement('span'); marker.textContent = '\u200b'; mirror.append(marker); document.body.append(mirror);
-      editor.scrollTop = Math.max(0, marker.offsetTop - editor.clientHeight / 2); mirror.remove();
+      editor.scrollTop = Math.max(0, marker.offsetTop - editor.clientHeight / 2); mirror.remove(); syncOverlay();
     } else {
       const ranges = matches.map(rangeFor).filter(Boolean), current = ranges[index];
       if (CSS.highlights) { CSS.highlights.set('search-results', new Highlight(...ranges)); if (current) CSS.highlights.set('search-current', new Highlight(current)); }
