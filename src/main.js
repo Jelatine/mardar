@@ -62,7 +62,14 @@ function insertHeading(level) {
 document.querySelectorAll('[data-wrap]').forEach(b => b.onclick = () => insert(b.dataset.wrap, b.dataset.wrap));
 document.querySelectorAll('[data-prefix]').forEach(b => b.onclick = () => insert(b.dataset.prefix));
 $('#link').onclick = () => insert('[', '](https://example.com)');
-document.querySelectorAll('[data-view]').forEach(b => { if (b.tagName !== 'BUTTON') return; b.onclick = () => { breakHistoryGroup(); $('.panes').dataset.view = b.dataset.view; if (b.dataset.view === 'live') renderLive(editor.value.trim() ? undefined : 0); document.querySelectorAll('.view-tools [data-view]').forEach(x => x.classList.toggle('selected', x === b)); refreshSearch(); }; });
+async function setView(view) {
+  breakHistoryGroup();
+  $('.panes').dataset.view = view;
+  document.querySelectorAll('.view-tools [data-view]').forEach(button => button.classList.toggle('selected', button.dataset.view === view));
+  if (view === 'live') await renderLive(editor.value.trim() ? undefined : 0);
+  refreshSearch();
+}
+document.querySelectorAll('.view-tools [data-view]').forEach(button => { button.onclick = () => setView(button.dataset.view); });
 $('#toggle-sidebar').onclick = () => { const hidden = $('#app').classList.toggle('sidebar-hidden'); $('#toggle-sidebar').setAttribute('aria-expanded', String(!hidden)); $('#toggle-sidebar').title = $('#toggle-sidebar').ariaLabel = hidden ? '展开左侧工具栏' : '隐藏左侧工具栏'; };
 $('#theme').onclick = async () => { const dark = document.body.classList.toggle('dark'); liveCache.clear(); await Promise.all([render(), renderLive(), api?.theme(dark)]); };
 $('#undo').onclick = () => undoRedo(); $('#redo').onclick = () => undoRedo(true);
@@ -94,9 +101,9 @@ function mayLeave(closing = false) {
 }
 api?.onCloseRequest?.(async () => { const allowed = await mayLeave(true); await api.closeResponse(allowed); });
 
-async function load(doc) { breakHistoryGroup(); editor.value = doc.content; history = [editor.value]; historyIndex = 0; saved = editor.value; name = doc.name; base = doc.base || ''; format = 'markdown';  changed(); await render(); if ($('.panes').dataset.view === 'live') await renderLive(editor.value.trim() ? undefined : 0); await refreshRecent(); }
+async function load(doc, view = 'read') { breakHistoryGroup(); editor.value = doc.content; history = [editor.value]; historyIndex = 0; saved = editor.value; name = doc.name; base = doc.base || ''; format = 'markdown';  changed(); await setView(view); await render(); await refreshRecent(); }
 $('#save').onclick = () => save(); $('#save-as').onclick = () => save(true);
-$('#new').onclick = async () => { if (!await mayLeave()) return; await api?.newDocument(); await load({ content: '', name: '未命名.md', format: 'markdown' }); if ($('.panes').dataset.view !== 'live') editor.focus(); };
+$('#new').onclick = async () => { if (!await mayLeave()) return; await api?.newDocument(); await load({ content: '', name: '未命名.md', format: 'markdown' }, 'live'); };
 $('#open').onclick = async () => { if (!await mayLeave()) return; try { if (api) { const doc = await api.open(); if (doc) await load(doc); } else $('#file').click(); } catch (e) { status(`打开失败：${e.message}`); } };
 $('#file').onchange = async e => { const f = e.target.files[0]; if (f) await load({ content: await f.text(), name: f.name, format: 'markdown' }); e.target.value = ''; };
 let imageFormat = 'markdown';

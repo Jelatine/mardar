@@ -23,7 +23,7 @@ test.beforeEach(async ({}, testInfo) => {
   page = await app.firstWindow();
   await expect(page.locator('#editor')).toHaveValue(startup ? '# 冷启动\n' : '');
   await expect(page.locator('#dirty')).toBeEmpty();
-  await expect(page.locator('.panes')).toHaveAttribute('data-view', 'live');
+  await expect(page.locator('.panes')).toHaveAttribute('data-view', startup ? 'read' : 'live');
   if (!startup) await page.locator('button[data-view=split]').click();
 });
 test.afterEach(async () => {
@@ -72,6 +72,9 @@ test('opens markdown with relative image, saves changes, exports PDF', async () 
   await chooseOpen(file); await page.locator('#open').click();
   await expect(page.locator('#preview h1')).toHaveText('文件测试');
   await expect.poll(() => page.locator('#preview img').evaluate(img => img.naturalWidth)).toBe(100);
+  await expect(page.locator('.panes')).toHaveAttribute('data-view', 'read');
+  await expect(page.locator('button[data-view=read]')).toHaveClass('selected');
+  await page.locator('button[data-view=split]').click();
   await page.locator('#editor').fill('# 已保存\n\n$E=mc^2$\n\n![本地图片](pixel.svg)\n\n```mermaid\ngraph LR\nA-->B\n```');
   await page.locator('#save').click();
   await expect.poll(() => readFile(file, 'utf8')).toContain('# 已保存');
@@ -122,7 +125,12 @@ test('invalid chart is contained and preview recovers', async () => {
   await expect(page.locator('#preview .mermaid svg')).toBeVisible();
 });
 test('new document embeds selected image and handles save cancellation', async () => {
+  await page.locator('button[data-view=read]').click();
   await page.locator('#new').click();
+  await expect(page.locator('.panes')).toHaveAttribute('data-view', 'live');
+  await expect(page.locator('button[data-view=live]')).toHaveClass('selected');
+  await expect(page.locator('#live textarea')).toBeFocused();
+  await page.locator('button[data-view=split]').click();
   await page.locator('#editor').fill('# 图片笔记\n\n');
   const image = path.join(folder, 'picture.svg');
   await writeFile(image, '<svg xmlns="http://www.w3.org/2000/svg" width="70" height="40"><rect width="70" height="40" fill="blue"/></svg>');
@@ -158,12 +166,15 @@ test('CRLF files and fully reverted edits stay clean when switching and closing'
   const original = '# Windows\n\n正文\n';
   await expect(page.locator('#editor')).toHaveValue(original);
   await expect(page.locator('#dirty')).toBeEmpty();
+  await page.locator('button[data-view=split]').click();
   await page.locator('#editor').fill(original + '修改');
   await expect(page.locator('#dirty')).toHaveText('●');
   await page.locator('#editor').fill(original);
   await expect(page.locator('#dirty')).toBeEmpty();
   await page.locator('#new').click();
   await expect(page.locator('#editor')).toHaveValue('');
+  await expect(page.locator('#live textarea')).toBeFocused();
+  await page.locator('button[data-view=split]').click();
   await page.locator('#editor').pressSequentially('temporary');
   for (let i = 0; i < 9 && await page.locator('#editor').inputValue(); i++) {
     await page.locator('#editor').press('ControlOrMeta+z');
@@ -183,8 +194,8 @@ test('system open immediately after startup does not ask to save', async () => {
 });
 
 test('cold launch opens the requested file without a save prompt', async () => {
-  await expect(page.locator('#live h1')).toBeVisible();
-  await expect(page.locator('#live h1')).toHaveText('冷启动');
+  await expect(page.locator('#preview h1')).toBeVisible();
+  await expect(page.locator('button[data-view=read]')).toHaveClass('selected');
   await expect(page.locator('#preview h1')).toHaveText('冷启动');
   await expect(page.locator('#confirm')).not.toBeVisible();
 });
