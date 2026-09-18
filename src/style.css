@@ -44,8 +44,27 @@ dialog.about{width:min(460px,calc(100vw - 40px))}.about-head{display:flex;align-
 .prose :is(h1,h2,h3,h4,h5,h6){scroll-margin-top:20px}
 .dark .prose a{color:#9dceac}
 
-.search-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 16px;border-bottom:1px solid var(--line);background:var(--bg);flex-shrink:0;font-size:12px}
-.search-bar[hidden]{display:none}.search-bar>input{flex:1;min-width:140px;padding:7px 10px;border:1px solid var(--line);border-radius:5px;background:var(--soft);color:inherit}.search-bar label{display:flex;align-items:center;gap:3px;white-space:nowrap}.search-bar button{padding:5px 9px}.search-bar button:disabled{opacity:.4}#search-count{color:var(--muted)}
+/* Compact editor find widget, anchored without shifting document content. */
+.panes{position:relative}
+.search-bar{position:absolute;z-index:10;top:0;right:16px;display:flex;align-items:center;gap:8px;width:510px;max-width:calc(100% - 24px);padding:6px 8px;border:1px solid var(--line);border-top:0;border-radius:0 0 5px 5px;background:var(--bg);box-shadow:0 3px 12px #0002;font-size:12px}
+.search-bar[hidden]{display:none}
+.search-field{display:flex;align-items:center;flex:1;min-width:0;height:30px;padding:2px;border:1px solid var(--line);border-radius:3px;background:var(--soft)}
+.search-field:focus-within{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+#search-query{width:100%;min-width:0;flex:1;border:0;outline:none;padding:4px 6px;background:transparent;color:inherit;font:inherit}
+#search-query::placeholder{color:var(--muted)}
+.search-options,.search-navigation{display:flex;align-items:center;gap:2px;flex-shrink:0}
+.search-options label{position:relative;display:grid;place-items:center;width:24px;height:24px;cursor:pointer}
+.search-options input{position:absolute;inset:0;width:100%;height:100%;margin:0;opacity:0;cursor:pointer}
+.search-options span{display:grid;place-items:center;width:24px;height:24px;border:1px solid transparent;border-radius:3px;font:13px/1 monospace}
+.search-options label:hover span,.search-bar button:not(:disabled):hover{background:var(--button-hover)}
+.search-options input:checked+span{background:var(--button-hover);border-color:var(--button-hover-ring);color:inherit}
+.search-options input:focus-visible+span{outline:2px solid var(--accent);outline-offset:-2px}
+.search-options .search-word-icon{text-decoration:underline;text-underline-offset:3px}
+.search-bar button{display:grid;place-items:center;width:26px;height:26px;padding:5px;border-radius:3px}
+.search-bar button svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+.search-bar button:disabled{opacity:.35;background:transparent}
+#search-count{flex:0 1 auto;max-width:140px;color:var(--muted);font-size:11px;line-height:16px}
+@media(max-width:600px){.search-bar{right:6px;max-width:calc(100% - 12px);gap:4px;flex-wrap:wrap}.search-field{flex-basis:calc(100% - 90px)}#search-count{order:3;max-width:none;width:100%}#search-count:empty{display:none}}
 ::highlight(search-results){background:#ffe18a;color:#262616}::highlight(search-current){background:#ef9d36;color:#191609}
 @media print{.search-bar{display:none}}
 
@@ -57,4 +76,9 @@ dialog.about{width:min(460px,calc(100vw - 40px))}.about-head{display:flex;align-
 .sidebar button,.toolbar button,.titlebar button,#recent summary{transition:background-color .15s,box-shadow .15s}
 .sidebar button:not(:disabled):hover,.toolbar button:not(:disabled):hover,.titlebar button:not(:disabled):hover,#recent summary:hover{background:var(--button-hover);box-shadow:inset 0 0 0 1px var(--button-hover-ring)}
 .sidebar>.new:not(:disabled):hover,.sidebar .actions .primary:not(:disabled):hover{background:var(--primary-hover);box-shadow:inset 0 0 0 1px var(--button-hover-ring)}
-#recent summary{border-radius:3px}
+/* Put padding on each row so hover includes the full recent-files surface. */
+.sidebar #recent{padding:0;overflow:hidden;flex-shrink:0}
+#recent summary{display:list-item;padding:10px 12px;list-style-position:inside;border-radius:0}
+#recent-list{width:100%}
+#recent-list button{border-radius:0;padding:9px 12px}
+#recent summary:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
