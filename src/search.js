@@ -3,8 +3,11 @@ export function setupSearch(editor) {
   bar.className = 'search-bar'; bar.hidden = true; bar.setAttribute('aria-label', '文本搜索');
   bar.innerHTML = `<div class="search-field"><input id="search-query" type="text" aria-label="搜索文本" placeholder="查找" autocomplete="off" spellcheck="false"><div class="search-options"><label title="区分大小写" aria-label="区分大小写"><input type="checkbox" id="search-case" aria-label="大小写匹配"><span aria-hidden="true">Aa</span></label><label title="全词匹配" aria-label="全词匹配"><input type="checkbox" id="search-word" aria-label="全词匹配"><span class="search-word-icon" aria-hidden="true">ab</span></label><label title="使用正则表达式" aria-label="使用正则表达式"><input type="checkbox" id="search-regex" aria-label="正则表达式"><span aria-hidden="true">.*</span></label></div></div><span id="search-count" role="status" aria-live="polite"></span><div class="search-navigation"><button id="search-prev" aria-label="上一个匹配" title="上一个（Shift+Enter）"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 13V3M3.5 7.5 8 3l4.5 4.5"/></svg></button><button id="search-next" aria-label="下一个匹配" title="下一个（Enter）"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v10M3.5 8.5 8 13l4.5-4.5"/></svg></button><button id="search-close" aria-label="关闭搜索" title="关闭（Esc）"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4 4 8 8m0-8-8 8"/></svg></button></div>`;
   document.querySelector('.panes').prepend(bar);
-  const button = document.createElement('button'); button.textContent = '搜索'; button.title = '搜索（Ctrl+F / ⌘F）';
-  document.querySelector('.view-tools').prepend(button);
+  const button = document.createElement('button'); button.id = 'search-toggle'; button.title = '搜索（Ctrl+F / ⌘F）';
+  button.setAttribute('aria-label', '搜索'); button.setAttribute('aria-expanded', 'false');
+  bar.id = 'search-bar'; button.setAttribute('aria-controls', bar.id);
+  button.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 4.5 4.5"/></svg>';
+  document.querySelector('.toolbar-actions').prepend(button);
   const query = bar.querySelector('#search-query'), count = bar.querySelector('#search-count');
   const prev = bar.querySelector('#search-prev'), next = bar.querySelector('#search-next');
   let worker, timeout, matches = [], index = -1, nodes = [], source = false, previousFocus;
@@ -70,9 +73,9 @@ export function setupSearch(editor) {
       const selected = previousFocus instanceof HTMLTextAreaElement ? previousFocus.value.slice(previousFocus.selectionStart, previousFocus.selectionEnd) : window.getSelection()?.toString();
       if (selected && !selected.includes('\n')) query.value = selected;
     }
-    bar.hidden = false; query.focus(); query.select(); refresh(true);
+    bar.hidden = false; button.setAttribute('aria-expanded', 'true'); query.focus(); query.select(); refresh(true);
   }
-  function close() { bar.hidden = true; stop(); clear(); if (previousFocus?.isConnected) previousFocus.focus(); else document.querySelector('#live .live-block')?.focus(); }
+  function close() { bar.hidden = true; button.setAttribute('aria-expanded', 'false'); stop(); clear(); if (previousFocus?.isConnected) previousFocus.focus(); else document.querySelector('#live .live-block')?.focus(); }
   function move(delta) { if (matches.length) { index = (index + delta + matches.length) % matches.length; show(); } }
   button.onclick = open; prev.onclick = () => move(-1); next.onclick = () => move(1); bar.querySelector('#search-close').onclick = close;
   bar.addEventListener('input', () => refresh(true));
