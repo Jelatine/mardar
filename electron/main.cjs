@@ -1,7 +1,7 @@
 const { app, BrowserWindow, ipcMain, dialog, Menu, nativeTheme, shell } = require('electron');
 const fs = require('node:fs/promises');
 const path = require('node:path');
-const { pathToFileURL } = require('node:url');
+const { pathToFileURL, fileURLToPath } = require('node:url');
 let win, currentPath = null, dirty = false, darkTheme = false, modalOpen = false, closePending = false, allowClose = false, quitting = false;
 // Match dialog::backdrop (rgba(30, 48, 44, 1/3)) over native controls.
 const dimColor = hex => '#' + hex.slice(1).match(/../g).map((channel, i) => Math.round(parseInt(channel, 16) * 2 / 3 + [30, 48, 44][i] / 3).toString(16).padStart(2, '0')).join('');
@@ -41,6 +41,20 @@ handle('document:open', async () => {
   return result.canceled ? null : openFile(result.filePaths[0]);
 });
 handle('document:recent', () => recent);
+handle('document:open-link', async href => {
+  if (typeof href !== 'string') throw new Error('无效的文件链接');
+  const url = new URL(href);
+  if (url.protocol !== 'file:') throw new Error('仅支持本地 Markdown 文件');
+  const file = fileURLToPath(url);
+  if (!isMarkdown(file)) throw new Error('仅支持 Markdown 文件');
+  if (!(await fs.stat(file)).isFile()) throw new Error('链接目标不是文件');
+  return openFile(file);
+});
+handle('document:open-dropped', async file => {
+  if (!isMarkdown(file) || !path.isAbsolute(file)) throw new Error('仅支持本地 Markdown 文件');
+  if (!(await fs.stat(file)).isFile()) throw new Error('请拖入文件，而不是文件夹');
+  return openFile(file);
+});
 handle('document:open-recent', file => { if (!recent.includes(file)) throw new Error('文件不在最近列表中'); return openFile(file); });
 handle('document:pending', () => { rendererReady = true; return pending[0] || null; });
 handle('document:open-pending', file => { if (!pending.includes(file)) throw new Error('无打开请求'); pending = pending.filter(x => x !== file); return openFile(file); });

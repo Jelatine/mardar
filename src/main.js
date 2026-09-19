@@ -105,6 +105,37 @@ async function load(doc, view = 'read') { breakHistoryGroup(); editor.value = do
 $('#save').onclick = () => save(); $('#save-as').onclick = () => save(true);
 $('#new').onclick = async () => { if (!await mayLeave()) return; await api?.newDocument(); await load({ content: '', name: '未命名.md', format: 'markdown' }, 'live'); };
 $('#open').onclick = async () => { if (!await mayLeave()) return; try { if (api) { const doc = await api.open(); if (doc) await load(doc); } else $('#file').click(); } catch (e) { status(`打开失败：${e.message}`); } };
+let openingLink = false;
+async function openDocumentLink(event) {
+  const link = event.target.closest('a[href]');
+  if (!link || !(event.ctrlKey || event.metaKey) || (event.type === 'click' && event.button !== 0)) return;
+  const href = link.getAttribute('href');
+  if (!href || href.startsWith('#') || /^(?!file:)[a-z][a-z\d+.-]*:|^\/\//i.test(href)) return;
+  event.preventDefault();
+  if (openingLink) return;
+  openingLink = true;
+  try {
+    if (!api) throw new Error('请在桌面版中打开本地文件链接');
+    if (!base && !/^file:\/\//i.test(href)) throw new Error('请先保存当前文档，再打开相对路径链接');
+    // Resolve before saving: Save As may change the current document directory.
+    const url = new URL(href, base || undefined);
+    if (url.protocol !== 'file:') throw new Error('仅支持本地 Markdown 文件');
+    if (!await mayLeave()) return;
+    await load(await api.openLink(url.href));
+    if (url.hash) {
+      let id;
+      try { id = decodeURIComponent(url.hash.slice(1)); } catch { return; }
+      [...$('#preview').querySelectorAll('[id]')].find(node => node.id === id)?.scrollIntoView({ block: 'start' });
+    }
+    status('已打开链接文件');
+  } catch (e) { status(`打开失败：${e.message}`); }
+  finally { openingLink = false; }
+}
+for (const host of [$('#preview'), $('#live')]) {
+  host.addEventListener('click', openDocumentLink);
+  // macOS reports Control-click as a context-menu event.
+  host.addEventListener('contextmenu', event => { if (event.ctrlKey) openDocumentLink(event); });
+}
 $('#file').onchange = async e => { const f = e.target.files[0]; if (f) await load({ content: await f.text(), name: f.name, format: 'markdown' }); e.target.value = ''; };
 let imageFormat = 'markdown';
 function addImage(item, kind = imageFormat) { insert(kind === 'html' ? `<img src="${item.url.replaceAll('&', '&amp;').replaceAll('"', '&quot;')}" alt="图片" width="600" />` : `![图片](<${item.url}>)`); }
@@ -132,7 +163,34 @@ function insertImagePath(kind = 'markdown') {
   d.onclose = () => d.remove(); document.body.append(d); d.showModal(); input.focus();
 }
 $('#image-file').onchange = e => { if (e.target.files[0]) readImage(e.target.files[0]); e.target.value = ''; };
-editor.addEventListener('dragover', e => e.preventDefault()); editor.addEventListener('drop', e => { e.preventDefault(); for (const f of e.dataTransfer.files) if (f.type.startsWith('image/')) readImage(f); });
+let openingDrop = false;
+document.addEventListener('dragover', e => {
+  if (!e.dataTransfer.types.includes('Files')) return;
+  e.preventDefault();
+  e.dataTransfer.dropEffect = openingDrop || document.querySelector('dialog[open]') ? 'none' : 'copy';
+});
+document.addEventListener('drop', async e => {
+  const files = [...e.dataTransfer.files];
+  if (!files.length) return;
+  e.preventDefault();
+  if (openingDrop || document.querySelector('dialog[open]')) return;
+  const documents = files.filter(file => /\.(md|markdown)$/i.test(file.name));
+  if (!documents.length) {
+    const images = files.filter(file => file.type.startsWith('image/'));
+    if (e.target === editor && images.length) images.forEach(readImage);
+    else status('请拖入 Markdown 文件（.md 或 .markdown）');
+    return;
+  }
+  if (documents.length > 1) { status('请一次拖入一个 Markdown 文件'); return; }
+  openingDrop = true;
+  try {
+    if (!await mayLeave()) return;
+    const file = documents[0];
+    await load(api ? await api.openDropped(file) : { content: await file.text(), name: file.name });
+    status('文档已打开');
+  } catch (e) { status(`打开失败：${e.message}`); }
+  finally { openingDrop = false; }
+});
 editor.addEventListener('paste', e => { const images = [...e.clipboardData.files].filter(f => f.type.startsWith('image/')); if (images.length) { e.preventDefault(); images.forEach(readImage); } });
 $('#pdf').onclick = async () => { const button = $('#pdf'); button.disabled = true; status('正在排版 PDF…'); try { clearTimeout(timer); await render(); await document.fonts.ready; await Promise.all([...$('#preview').querySelectorAll('img')].map(img => img.decode().catch(() => {}))); if (api) { const path = await api.pdf(); status(path ? `PDF 已导出：${path}` : '已取消导出'); } else { window.print(); status('已打开打印对话框，请选择保存为 PDF'); } } catch (e) { status(`导出失败：${e.message}`); } finally { button.disabled = false; } };
 document.addEventListener('keydown', e => { if (!(e.metaKey || e.ctrlKey) || e.target.closest('.search-bar')) return; const key = e.key.toLowerCase(); if (key === 'z' || key === 'y') { e.preventDefault(); undoRedo(key === 'y' || e.shiftKey); return; } if (['s', 'o', 'n', 'b', 'i'].includes(key)) { e.preventDefault(); if (key === 's') save(e.shiftKey); if (key === 'o') $('#open').click(); if (key === 'n') $('#new').click(); if (key === 'b') document.querySelectorAll('[data-wrap]')[0].click(); if (key === 'i') document.querySelectorAll('[data-wrap]')[1].click(); } });

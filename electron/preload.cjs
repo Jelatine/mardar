@@ -1,4 +1,4 @@
-const { contextBridge, ipcRenderer } = require('electron');
+const { contextBridge, ipcRenderer, webUtils } = require('electron');
 contextBridge.exposeInMainWorld('desktop', {
   onCloseRequest: callback => ipcRenderer.on('window:close-request', callback),
   closeResponse: allowed => ipcRenderer.invoke('window:close-response', allowed),
@@ -20,6 +20,8 @@ contextBridge.exposeInMainWorld('desktop', {
   onUpdateAvailable: callback => ipcRenderer.on('update:available', (_event, result) => callback(result)),
   onUpdateProgress: callback => ipcRenderer.on('update:progress', (_event, value) => callback(value)),
   open: () => ipcRenderer.invoke('document:open'),
+  openLink: href => ipcRenderer.invoke('document:open-link', href),
+  openDropped: file => ipcRenderer.invoke('document:open-dropped', webUtils.getPathForFile(file)),
   save: (content, saveAs, format) => ipcRenderer.invoke('document:save', { content, saveAs, format }),
   newDocument: () => ipcRenderer.invoke('document:new'),
   image: mode => ipcRenderer.invoke('document:image', mode),

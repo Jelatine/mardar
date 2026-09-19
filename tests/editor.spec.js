@@ -144,6 +144,31 @@ test('new document embeds selected image and handles save cancellation', async (
   await expect.poll(() => readFile(file, 'utf8')).toContain('data:image/svg+xml;base64,');
   await expect(page.locator('#dirty')).toBeEmpty();
 });
+test('file drop protects edits and keeps the native save path', async () => {
+  const file = path.join(folder, '拖入.MD'); await writeFile(file, '# 拖入文档');
+  await page.locator('#file').setInputFiles(file);
+  await expect(page.locator('#editor')).toHaveValue('# 拖入文档');
+  // Use a separate input to obtain a real disk-backed File without invoking open.
+  await page.evaluate(() => { const input = document.createElement('input'); input.type = 'file'; input.id = 'drop-test'; document.body.append(input); });
+  await page.locator('#drop-test').setInputFiles(file);
+  const drop = () => page.evaluate(() => {
+    const dataTransfer = new DataTransfer(); dataTransfer.items.add(document.querySelector('#drop-test').files[0]);
+    document.querySelector('.sidebar').dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer }));
+  });
+  await page.locator('button[data-view=split]').click();
+  await page.locator('#editor').fill('# 保留编辑');
+  await drop(); await expect(page.locator('#confirm')).toBeVisible();
+  await page.locator('[data-choice=cancel]').click();
+  await expect(page.locator('#editor')).toHaveValue('# 保留编辑');
+  await drop(); await page.locator('[data-choice=discard]').click();
+  await expect(page.locator('#preview h1')).toHaveText('拖入文档');
+  await expect(page.locator('#dirty')).toBeEmpty();
+  expect(await page.evaluate(() => window.desktop.recent())).toContain(file);
+  await page.locator('button[data-view=split]').click();
+  await page.locator('#editor').fill('# 拖入后保存'); await page.locator('#save').click();
+  await expect.poll(() => readFile(file, 'utf8')).toBe('# 拖入后保存');
+});
+
 test('OS open request protects unsaved edits and opens in the same window', async () => {
   const file = path.join(folder, 'external.md'); await writeFile(file, '# 系统打开');
   await page.locator('#editor').fill('# 尚未保存');
@@ -520,6 +545,37 @@ test('discard closes a dirty window without writing a file', async () => {
   });
   await page.locator('[data-choice=discard]').click();
   await expect.poll(() => app.windows().length).toBe(0);
+});
+
+test('Ctrl click opens local Markdown links and protects unsaved edits', async () => {
+  const notes = path.join(folder, 'notes'), docs = path.join(folder, 'docs');
+  await mkdir(notes); await mkdir(docs);
+  const sourceFile = path.join(notes, 'index.md'), target = path.join(docs, '政策 部署.md');
+  const source = '[部署](../docs/政策%20部署.md#目标)\n\n[缺失](missing.md)\n\n[绝对链接](' + pathToFileURL(target).href + ')';
+  await writeFile(sourceFile, source); await writeFile(target, '# 目标\n\n部署说明');
+  for (const mode of ['read', 'split', 'live']) {
+    await chooseOpen(sourceFile); await page.locator('#open').click();
+    await page.locator(`button[data-view=${mode}]`).click();
+    const host = mode === 'live' ? '#live' : '#preview';
+    await page.locator(host).getByRole('link', { name: '部署', exact: true }).click();
+    await expect(page.locator('#name')).toHaveText('index.md');
+    await page.locator(host).getByRole('link', { name: '部署', exact: true }).click({ modifiers: ['Control'] });
+    await expect(page.locator('#name')).toHaveText('政策 部署.md');
+    await expect(page.locator('#editor')).toHaveValue('# 目标\n\n部署说明');
+  }
+  await chooseOpen(sourceFile); await page.locator('#open').click();
+  await page.locator('#preview').getByRole('link', { name: '缺失', exact: true }).click({ modifiers: ['Control'] });
+  await expect(page.locator('#status')).toContainText('打开失败');
+  await expect(page.locator('#name')).toHaveText('index.md');
+  await page.locator('button[data-view=split]').click();
+  await page.locator('#editor').fill(source + '\n\n未保存');
+  const link = page.locator('#preview').getByRole('link', { name: '绝对链接', exact: true });
+  await link.click({ modifiers: ['Control'] });
+  await page.locator('[data-choice=cancel]').click();
+  await expect(page.locator('#editor')).toHaveValue(source + '\n\n未保存');
+  await link.click({ modifiers: ['Control'] });
+  await page.locator('[data-choice=discard]').click();
+  await expect(page.locator('#name')).toHaveText('政策 部署.md');
 });
 
 test('document anchors scroll in reading, split and live modes', async () => {
