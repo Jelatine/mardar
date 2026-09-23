@@ -630,6 +630,39 @@ test('text search supports options, navigation and invalid regex', async () => {
   await query.press('Escape'); await expect(query).toBeHidden();
   await expect(page.locator('#editor')).toHaveValue('Cat cat scatter cat. a+b\n猫 猫咪\n123 456');
 });
+test('search button starts with selected source or rendered text', async () => {
+  await page.locator('#editor').fill('alpha beta alpha');
+  await page.locator('#editor').evaluate(el => { el.focus(); el.setSelectionRange(6, 10); });
+  await page.locator('#search-toggle').click();
+  await expect(page.locator('#search-query')).toHaveValue('beta');
+  await expect(page.locator('#search-count')).toHaveText('1 / 1');
+  await page.locator('#search-query').press('Escape');
+  await page.locator('button[data-view=read]').click();
+  await page.locator('#preview p').evaluate(el => {
+    const selection = window.getSelection(), range = document.createRange();
+    range.setStart(el.firstChild, 0); range.setEnd(el.firstChild, 5);
+    selection.removeAllRanges(); selection.addRange(range);
+  });
+  await page.locator('#search-toggle').click();
+  await expect(page.locator('#search-query')).toHaveValue('alpha');
+});
+test('dark code blocks keep syntax and plain text readable', async () => {
+  await page.locator('#editor').fill('```javascript\nconst value = "text"; // comment\n```\n\n```\nplain text\n```');
+  await expect(page.locator('#preview .hljs-keyword')).toBeVisible();
+  await page.locator('#theme').click();
+  const colors = await page.locator('#preview pre').first().evaluate(pre => {
+    const code = pre.querySelector('code');
+    return { keyword: getComputedStyle(code.querySelector('.hljs-keyword')).color, text: getComputedStyle(code).color, background: getComputedStyle(code).backgroundColor };
+  });
+  expect(colors.keyword).toBe('rgb(255, 155, 146)');
+  expect(colors.text).toBe('rgb(215, 226, 212)');
+  expect(colors.background).toBe('rgba(0, 0, 0, 0)');
+  await expect(page.locator('#preview pre').last()).toHaveCSS('color', 'rgb(217, 226, 212)');
+  const centers = await page.locator('.toolbar-actions button').evaluateAll(buttons => buttons.map(button => {
+    const icon = button.querySelector('svg').getBoundingClientRect(); return icon.y + icon.height / 2;
+  }));
+  expect(Math.abs(centers[0] - centers[1])).toBeLessThan(1);
+});
 
 test('text search highlights rendered text in reading and live views', async () => {
   await page.locator('#editor').fill('# Heading\n\nHello **world** and world.');

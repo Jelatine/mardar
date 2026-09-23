@@ -10,7 +10,12 @@ export function setupSearch(editor) {
   document.querySelector('.toolbar-actions').prepend(button);
   const query = bar.querySelector('#search-query'), count = bar.querySelector('#search-count');
   const prev = bar.querySelector('#search-prev'), next = bar.querySelector('#search-next');
-  let worker, timeout, matches = [], index = -1, nodes = [], source = false, previousFocus;
+  let worker, timeout, matches = [], index = -1, nodes = [], source = false, previousFocus, pointerSelection;
+  function selectedText() {
+    const focused = document.activeElement;
+    if (focused instanceof HTMLTextAreaElement || focused instanceof HTMLInputElement) return focused.value.slice(focused.selectionStart, focused.selectionEnd);
+    return window.getSelection()?.toString() || '';
+  }
   // Native textarea selections disappear when the find field owns focus.
   // Paint match backgrounds behind the transparent textarea instead.
   const sourceHost = document.createElement('div'); sourceHost.className = 'source-search-host';
@@ -98,14 +103,16 @@ export function setupSearch(editor) {
   }
   function open() {
     if (bar.hidden) {
-      previousFocus = document.activeElement;
-      const selected = previousFocus instanceof HTMLTextAreaElement ? previousFocus.value.slice(previousFocus.selectionStart, previousFocus.selectionEnd) : window.getSelection()?.toString();
+      previousFocus = pointerSelection?.focus || document.activeElement;
+      const selected = pointerSelection?.text ?? selectedText();
       if (selected && !selected.includes('\n')) query.value = selected;
     }
+    pointerSelection = undefined;
     bar.hidden = false; button.setAttribute('aria-expanded', 'true'); query.focus(); query.select(); refresh(true);
   }
   function close() { bar.hidden = true; button.setAttribute('aria-expanded', 'false'); stop(); clear(); if (previousFocus?.isConnected) previousFocus.focus(); else document.querySelector('#live .live-block')?.focus(); }
   function move(delta) { if (matches.length) { index = (index + delta + matches.length) % matches.length; show(); } }
+  button.addEventListener('pointerdown', () => { pointerSelection = { focus: document.activeElement, text: selectedText() }; });
   button.onclick = open; prev.onclick = () => move(-1); next.onclick = () => move(1); bar.querySelector('#search-close').onclick = close;
   bar.addEventListener('input', () => refresh(true));
   document.addEventListener('keydown', e => {
