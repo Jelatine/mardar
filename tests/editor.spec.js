@@ -705,7 +705,7 @@ for (const view of ['split', 'edit']) {
     await expect(overlay).toBeVisible();
     await expect(overlay.locator('mark')).toHaveCount(2);
     await expect(overlay.locator('mark').first()).toHaveClass('search-current');
-    expect(await overlay.locator('mark').first().evaluate(el => getComputedStyle(el).backgroundColor)).toBe('rgb(239, 157, 54)');
+    await expect(overlay.locator('mark').first()).toHaveCSS('background-color', 'rgb(239, 157, 54)');
     await page.locator('#search-query').press('Enter');
     await expect(overlay.locator('mark').last()).toHaveClass('search-current');
     await expect.poll(() => page.evaluate(() => {
