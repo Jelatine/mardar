@@ -106,6 +106,31 @@ handle('document:pdf', async () => {
   await fs.writeFile(result.filePath, data); return result.filePath;
 });
 handle('clipboard:text', () => clipboard.readText());
+// The renderer describes what was right-clicked. Clipboard commands stay native
+// roles; document commands are sent back to the renderer as actions.
+handle('window:context-menu', context => {
+  const item = (label, action, enabled = true) => ({ label, enabled, click: () => win.webContents.send('menu:action', action) });
+  const history = (label, redo, enabled) => ({ label, enabled, click: () => win.webContents.send('document:history', redo) });
+  const separator = { type: 'separator' }, selection = context.selection === true, template = [];
+  if (context.editable) {
+    template.push(...(context.writing ? [history('撤销', false, context.canUndo === true), history('重做', true, context.canRedo === true)] : [{ role: 'undo', label: '撤销' }, { role: 'redo', label: '重做' }]), separator,
+      { role: 'cut', label: '剪切', enabled: selection }, { role: 'copy', label: '复制', enabled: selection }, { role: 'paste', label: '粘贴' },
+      context.writing ? item('粘贴为纯文本', 'paste-plain') : { role: 'pasteAndMatchStyle', label: '粘贴为纯文本' }, { role: 'selectAll', label: '全选' });
+    if (context.writing) template.push(separator, item('粗体', 'bold'), item('斜体', 'italic'), item('引用', 'quote'), item('列表', 'list'), item('插入链接', 'link'), item('插入表格…', 'table'));
+  } else {
+    if (typeof context.link === 'string') {
+      if (context.localLink === true) template.push(item('打开链接文件', 'open-link'));
+      template.push({ label: '复制链接地址', click: () => clipboard.writeText(context.link) });
+    }
+    if (context.image === true) {
+      template.push({ label: '复制图片', click: () => win.webContents.copyImageAt(Math.round(Number(context.x) || 0), Math.round(Number(context.y) || 0)) });
+      if (typeof context.imageUrl === 'string') template.push({ label: '复制图片地址', click: () => clipboard.writeText(context.imageUrl) });
+    }
+    if (selection) template.push(...(template.length ? [separator] : []), { role: 'copy', label: '复制' });
+  }
+  if (context.document === true) template.push(...(template.length ? [separator] : []), item('查找…', 'find'), item('替换…', 'replace'));
+  if (template.length) Menu.buildFromTemplate(template).popup({ window: win });
+});
 ipcMain.on('document:dirty', (event, value) => { authorized(event); dirty = !!value; win.setDocumentEdited(dirty); });
 app.whenReady().then(async () => {
   if (!lock) return;

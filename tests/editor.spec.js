@@ -872,3 +872,60 @@ test('rich paste works in live paragraphs and Ctrl+Shift+V pastes plain text', a
   await page.locator('#editor').press('Control+Shift+V');
   await expect(page.locator('#editor')).toHaveValue('粗体\n原文');
 });
+
+// Capture the native menu instead of showing it, then read or click its items.
+async function contextMenu(locator, options) {
+  await app.evaluate(({ Menu }) => { globalThis.lastMenu = null; Menu.prototype.popup = function () { globalThis.lastMenu = this; }; });
+  await locator.click({ button: 'right', ...options });
+  await expect.poll(() => app.evaluate(() => !!globalThis.lastMenu)).toBe(true);
+  return app.evaluate(() => globalThis.lastMenu.items.filter(item => item.type !== 'separator').map(item => `${item.label}${item.enabled ? '' : '（禁用）'}`));
+}
+const chooseMenu = label => app.evaluate((_electron, label) => globalThis.lastMenu.items.find(item => item.label === label).click(), label);
+
+test('context menus offer editing, formatting, link and search commands', async () => {
+  const editor = page.locator('#editor');
+  await editor.fill('文字 [文档](other.md) [站点](https://example.com)\n\n![图](https://example.com/a.png)');
+  expect(await contextMenu(editor)).toEqual(['撤销', '重做（禁用）', '剪切（禁用）', '复制（禁用）', '粘贴', '粘贴为纯文本', '全选', '粗体', '斜体', '引用', '列表', '插入链接', '插入表格…', '查找…', '替换…']);
+  await editor.evaluate(input => input.setSelectionRange(0, 2));
+  expect(await contextMenu(editor, { position: { x: 30, y: 30 } })).toContain('剪切');
+  await editor.evaluate(input => input.setSelectionRange(0, 2));
+  await chooseMenu('粗体');
+  await expect(editor).toHaveValue(/^\*\*文字\*\* /);
+  await chooseMenu('撤销');
+  await expect(editor).toHaveValue(/^文字 /);
+  await app.evaluate(({ clipboard }) => clipboard.writeText('纯*文本'));
+  await editor.evaluate(input => { input.focus(); input.setSelectionRange(0, 2); });
+  await chooseMenu('粘贴为纯文本');
+  await expect(editor).toHaveValue(/^纯\*文本 /);
+
+  const preview = page.locator('#preview');
+  expect(await contextMenu(preview.locator('a', { hasText: '文档' }))).toEqual(['打开链接文件', '复制链接地址', '查找…', '替换…']);
+  await chooseMenu('复制链接地址');
+  expect(await app.evaluate(({ clipboard }) => clipboard.readText())).toBe('other.md');
+  expect(await contextMenu(preview.locator('a', { hasText: '站点' }))).toEqual(['复制链接地址', '查找…', '替换…']);
+  expect(await contextMenu(preview.locator('img'))).toEqual(['复制图片', '复制图片地址', '查找…', '替换…']);
+  await chooseMenu('替换…');
+  await expect(page.locator('#replace-row')).toBeVisible();
+  await page.locator('#search-close').click();
+
+  // Nothing to offer outside the document: no menu appears.
+  await app.evaluate(() => { globalThis.lastMenu = null; });
+  await page.locator('.outline-header').click({ button: 'right' });
+  await page.locator('#status').click();
+  expect(await app.evaluate(() => globalThis.lastMenu)).toBeNull();
+});
+
+test('context menu edits the focused live paragraph', async () => {
+  await page.locator('#editor').fill('第一段\n\n第二段\n');
+  await page.locator('button[data-view=live]').click();
+  await page.locator('.live-block').nth(1).click();
+  const input = page.locator('#live textarea');
+  await expect(input).toHaveValue('第二段');
+  await input.evaluate(node => { node.setSelectionRange(0, 3); node.dispatchEvent(new Event('select')); });
+  expect(await contextMenu(input, { position: { x: 20, y: 10 } })).toContain('斜体');
+  await input.evaluate(node => { node.setSelectionRange(0, 3); node.dispatchEvent(new Event('select')); });
+  await chooseMenu('斜体');
+  await expect(page.locator('#editor')).toHaveValue('第一段\n\n*第二段*\n');
+  await expect(page.locator('#live textarea')).toHaveValue('*第二段*');
+  expect(await contextMenu(page.locator('.live-block').first())).toEqual(['查找…', '替换…']);
+});

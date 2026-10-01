@@ -111,7 +111,7 @@ async function openDocumentLink(event) {
   const link = event.target.closest('a[href]');
   if (!link || !(event.ctrlKey || event.metaKey) || (event.type === 'click' && event.button !== 0)) return;
   const href = link.getAttribute('href');
-  if (!href || href.startsWith('#') || /^(?!file:)[a-z][a-z\d+.-]*:|^\/\//i.test(href)) return;
+  if (!localHref(href)) return;
   event.preventDefault();
   if (openingLink) return;
   openingLink = true;
@@ -211,12 +211,47 @@ document.addEventListener('paste', e => {
   if (markdown) { e.preventDefault(); pasteText(target, markdown, markdown.includes('\n') || /^(?:#{1,6} |[-|>] |\d+\. |```)/.test(markdown)); status('已按 Markdown 格式粘贴，Ctrl/Cmd+Shift+V 可粘贴为纯文本'); }
   else if (images.length) { e.preventDefault(); images.forEach(readImage); }
 });
-document.addEventListener('keydown', async e => {
-  const target = writingTarget(e.target);
-  if (!target || !(e.ctrlKey || e.metaKey) || !e.shiftKey || e.altKey || e.key.toLowerCase() !== 'v') return;
-  e.preventDefault();
+async function pastePlain(target) {
   try { const text = await (api ? api.clipboardText() : navigator.clipboard.readText()); if (text && document.activeElement === target) pasteText(target, text.replace(/\r\n?/g, '\n'), false); }
   catch (error) { status(`粘贴失败：${error.message}`); }
+}
+document.addEventListener('keydown', e => {
+  const target = writingTarget(e.target);
+  if (!target || !(e.ctrlKey || e.metaKey) || !e.shiftKey || e.altKey || e.key.toLowerCase() !== 'v') return;
+  e.preventDefault(); pastePlain(target);
+});
+// Native context menu: describe the clicked element to the main process, then
+// carry out the document action it sends back.
+const localHref = href => !!href && !href.startsWith('#') && !/^(?!file:)[a-z][a-z\d+.-]*:|^\/\//i.test(href);
+let menuTarget = {};
+document.addEventListener('contextmenu', e => {
+  // Control-click on a local link opens it (see openDocumentLink).
+  if (!api || e.defaultPrevented) return;
+  e.preventDefault();
+  const field = e.target.closest('textarea, input'), writing = writingTarget(e.target);
+  const link = field ? null : e.target.closest('a[href]'), image = field ? null : e.target.closest('.prose img');
+  let selection = '';
+  try { selection = field ? field.value.slice(field.selectionStart, field.selectionEnd) : getSelection().toString(); } catch {}
+  const href = link?.getAttribute('href'), src = image?.getAttribute('src');
+  menuTarget = { field: writing, link };
+  api.contextMenu({
+    editable: !!field, writing: !!writing, selection: !!selection, document: !!e.target.closest('.panes') && !e.target.closest('.search-bar'),
+    canUndo: !$('#undo').disabled, canRedo: !$('#redo').disabled,
+    ...(href && { link: href, localLink: localHref(href) }),
+    ...(image && { image: true, x: e.clientX, y: e.clientY, ...(src && !src.startsWith('data:') && { imageUrl: src }) }),
+  }).catch(error => status(error.message));
+});
+api?.onMenuAction?.(action => {
+  const { field, link } = menuTarget, click = selector => document.querySelector(selector).click();
+  if (action === 'paste-plain' && field) pastePlain(field);
+  if (action === 'bold') click('[data-wrap="**"]');
+  if (action === 'italic') click('[data-wrap="*"]');
+  if (action === 'quote') click('[data-prefix="> "]');
+  if (action === 'list') click('[data-prefix="- "]');
+  if (action === 'link') click('#link');
+  if (action === 'table') click('#table');
+  if (action === 'open-link' && link?.isConnected) openDocumentLink({ target: link, ctrlKey: true, type: 'menu', preventDefault() {} });
+  if (action === 'find' || action === 'replace') { click('#search-toggle'); if (action === 'replace' && $('#replace-row').hidden) click('#replace-toggle'); }
 });
 $('#pdf').onclick = async () => { const button = $('#pdf'); button.disabled = true; status('正在排版 PDF…'); try { clearTimeout(timer); await render(); await document.fonts.ready; await Promise.all([...$('#preview').querySelectorAll('img')].map(img => img.decode().catch(() => {}))); if (api) { const path = await api.pdf(); status(path ? `PDF 已导出：${path}` : '已取消导出'); } else { window.print(); status('已打开打印对话框，请选择保存为 PDF'); } } catch (e) { status(`导出失败：${e.message}`); } finally { button.disabled = false; } };
 document.addEventListener('keydown', e => { if (!(e.metaKey || e.ctrlKey) || e.target.closest('.search-bar')) return; const key = e.key.toLowerCase(); if (key === 'z' || key === 'y') { e.preventDefault(); undoRedo(key === 'y' || e.shiftKey); return; } if (['s', 'o', 'n', 'b', 'i'].includes(key)) { e.preventDefault(); if (key === 's') save(e.shiftKey); if (key === 'o') $('#open').click(); if (key === 'n') $('#new').click(); if (key === 'b') document.querySelectorAll('[data-wrap]')[0].click(); if (key === 'i') document.querySelectorAll('[data-wrap]')[1].click(); } });

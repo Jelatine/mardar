@@ -26,6 +26,8 @@ contextBridge.exposeInMainWorld('desktop', {
   newDocument: () => ipcRenderer.invoke('document:new'),
   image: mode => ipcRenderer.invoke('document:image', mode),
   pdf: () => ipcRenderer.invoke('document:pdf'),
+  contextMenu: context => ipcRenderer.invoke('window:context-menu', context),
+  onMenuAction: callback => ipcRenderer.on('menu:action', (_event, action) => callback(action)),
   clipboardText: () => ipcRenderer.invoke('clipboard:text'),
   dirty: value => ipcRenderer.send('document:dirty', value),
 });
