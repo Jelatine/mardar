@@ -5,6 +5,7 @@ import 'highlight.js/styles/github.css';
 import './print.css';
 import { renderDocument, renderBlock, sourceBlocks, assignHeadingIds, fillToc, numberFootnotes, isNoteDefinition } from './render';
 import { formulaTemplates, chartTemplates } from './templates';
+import { htmlToMarkdown } from './paste';
 import appIcon from '../build/icon.svg';
 const api = window.desktop;
 if (api) document.body.classList.add(/Mac/.test(navigator.platform) ? 'desktop-mac' : 'desktop-overlay');
@@ -191,7 +192,32 @@ document.addEventListener('drop', async e => {
   } catch (e) { status(`打开失败：${e.message}`); }
   finally { openingDrop = false; }
 });
-editor.addEventListener('paste', e => { const images = [...e.clipboardData.files].filter(f => f.type.startsWith('image/')); if (images.length) { e.preventDefault(); images.forEach(readImage); } });
+const writingTarget = node => node instanceof HTMLTextAreaElement && node.closest('#editor, #live') ? node : null;
+// Insert through the editing pipeline so the source, live paragraph and history stay in sync.
+function pasteText(target, text, block) {
+  if (block) {
+    // Tables, lists and headings need blank lines between them and the surrounding text.
+    const before = target.value.slice(0, target.selectionStart), after = target.value.slice(target.selectionEnd);
+    if (before.trim()) text = (before.endsWith('\n\n') ? '' : before.endsWith('\n') ? '\n' : '\n\n') + text;
+    text += !after ? '\n' : after.startsWith('\n\n') ? '' : after.startsWith('\n') ? '\n' : '\n\n';
+  }
+  breakHistoryGroup(); target.focus(); document.execCommand('insertText', false, text); breakHistoryGroup();
+}
+document.addEventListener('paste', e => {
+  const target = writingTarget(e.target); if (!target) return;
+  const images = [...e.clipboardData.files].filter(f => f.type.startsWith('image/'));
+  // Excel and Word also offer a picture of the selection; prefer their text. A copied image has none.
+  const markdown = images.length && !e.clipboardData.getData('text/plain').trim() ? null : htmlToMarkdown(e.clipboardData.getData('text/html'));
+  if (markdown) { e.preventDefault(); pasteText(target, markdown, markdown.includes('\n') || /^(?:#{1,6} |[-|>] |\d+\. |```)/.test(markdown)); status('已按 Markdown 格式粘贴，Ctrl/Cmd+Shift+V 可粘贴为纯文本'); }
+  else if (images.length) { e.preventDefault(); images.forEach(readImage); }
+});
+document.addEventListener('keydown', async e => {
+  const target = writingTarget(e.target);
+  if (!target || !(e.ctrlKey || e.metaKey) || !e.shiftKey || e.altKey || e.key.toLowerCase() !== 'v') return;
+  e.preventDefault();
+  try { const text = await (api ? api.clipboardText() : navigator.clipboard.readText()); if (text && document.activeElement === target) pasteText(target, text.replace(/\r\n?/g, '\n'), false); }
+  catch (error) { status(`粘贴失败：${error.message}`); }
+});
 $('#pdf').onclick = async () => { const button = $('#pdf'); button.disabled = true; status('正在排版 PDF…'); try { clearTimeout(timer); await render(); await document.fonts.ready; await Promise.all([...$('#preview').querySelectorAll('img')].map(img => img.decode().catch(() => {}))); if (api) { const path = await api.pdf(); status(path ? `PDF 已导出：${path}` : '已取消导出'); } else { window.print(); status('已打开打印对话框，请选择保存为 PDF'); } } catch (e) { status(`导出失败：${e.message}`); } finally { button.disabled = false; } };
 document.addEventListener('keydown', e => { if (!(e.metaKey || e.ctrlKey) || e.target.closest('.search-bar')) return; const key = e.key.toLowerCase(); if (key === 'z' || key === 'y') { e.preventDefault(); undoRedo(key === 'y' || e.shiftKey); return; } if (['s', 'o', 'n', 'b', 'i'].includes(key)) { e.preventDefault(); if (key === 's') save(e.shiftKey); if (key === 'o') $('#open').click(); if (key === 'n') $('#new').click(); if (key === 'b') document.querySelectorAll('[data-wrap]')[0].click(); if (key === 'i') document.querySelectorAll('[data-wrap]')[1].click(); } });
 window.addEventListener('beforeunload', e => { if (!api && editor.value !== saved) { e.preventDefault(); e.returnValue = ''; } });

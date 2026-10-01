@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, Menu, nativeTheme, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, Menu, nativeTheme, shell, clipboard } = require('electron');
 const fs = require('node:fs/promises');
 const path = require('node:path');
 const { pathToFileURL, fileURLToPath } = require('node:url');
@@ -105,6 +105,7 @@ handle('document:pdf', async () => {
   const data = await win.webContents.printToPDF({ printBackground: true, pageSize: 'A4', preferCSSPageSize: true });
   await fs.writeFile(result.filePath, data); return result.filePath;
 });
+handle('clipboard:text', () => clipboard.readText());
 ipcMain.on('document:dirty', (event, value) => { authorized(event); dirty = !!value; win.setDocumentEdited(dirty); });
 app.whenReady().then(async () => {
   if (!lock) return;

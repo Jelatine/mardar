@@ -815,3 +815,60 @@ test('opening replace from a rendered view switches to the source editor', async
   await expect(page.locator('#replace-row')).toBeHidden();
   await expect(page.locator('#search-bar')).toBeVisible();
 });
+
+async function paste(selector, html, text) {
+  await page.locator(selector).evaluate((target, { html, text }) => {
+    const data = new DataTransfer(); data.setData('text/html', html); data.setData('text/plain', text);
+    target.focus(); target.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }));
+  }, { html, text });
+}
+const excel = '<html xmlns:x="urn:schemas-microsoft-com:office:excel"><head><style>.xl65{font-weight:700}</style></head><body><table><col width=87><tr height=21><td class=xl65>姓名</td><td align=right>分数</td><td>备注</td></tr><tr><td rowspan=2>张三</td><td align=right>90</td><td>a|b</td></tr><tr><td colspan=2>第一行<br>第二行</td></tr></table></body></html>';
+const word = `<html xmlns:o="urn:schemas-microsoft-com:office:office"><body><h1><span lang=EN-US>报告<o:p></o:p></span></h1>
+<p class=MsoNormal><b>加粗 </b>与<i>斜体</i>、<span style='text-decoration:line-through'>删除</span>、<a href="https://example.com/a_b">链接</a>，价格 $5 * 2 <o:p></o:p></p>
+<p class=MsoNormal><o:p>&nbsp;</o:p></p>
+<p class=MsoListParagraph style='mso-list:l0 level1 lfo1'><![if !supportLists]><span style='mso-list:Ignore'>·<span style='font:7.0pt "Times New Roman"'>&nbsp;&nbsp;</span></span><![endif]>苹果</p>
+<p class=MsoListParagraph style='mso-list:l0 level2 lfo1'><![if !supportLists]><span style='mso-list:Ignore'>o<span>&nbsp;</span></span><![endif]>红富士</p>
+<p class=MsoListParagraph style='mso-list:l1 level1 lfo2'><![if !supportLists]><span style='mso-list:Ignore'>1.<span>&nbsp;</span></span><![endif]>第一步</p>
+<table class=MsoTableGrid><tr><td><p class=MsoNormal><b>项目</b></p></td><td><p class=MsoNormal>数量</p></td></tr><tr><td><p class=MsoNormal>纸</p></td><td><p class=MsoNormal>3</p></td></tr></table></body></html>`;
+
+test('pasting Excel and Word content keeps tables and formatting as Markdown', async () => {
+  const editor = page.locator('#editor');
+  await editor.fill('开头');
+  await paste('#editor', excel, '姓名\t分数\t备注\n张三\t90\ta|b\n第一行 第二行');
+  await expect(editor).toHaveValue('开头\n\n| 姓名 | 分数 | 备注 |\n| --- | ---: | --- |\n| 张三 | 90 | a\\|b |\n|   | 第一行<br>第二行 |   |\n');
+  await expect(page.locator('#preview table tr')).toHaveCount(3);
+  await expect(page.locator('#preview td').nth(2)).toHaveText('a|b');
+  await page.locator('#undo').click();
+  await expect(editor).toHaveValue('开头');
+
+  await editor.fill('');
+  await paste('#editor', word, '报告');
+  await expect(editor).toHaveValue('# 报告\n\n**加粗** 与*斜体*、~~删除~~、[链接](<https://example.com/a_b>)，价格 \\$5 \\* 2\n\n- 苹果\n    - 红富士\n1. 第一步\n\n| **项目** | 数量 |\n| --- | --- |\n| 纸 | 3 |\n');
+  await expect(page.locator('#preview h1')).toHaveText('报告');
+  await expect(page.locator('#preview li li')).toHaveText('红富士');
+  await expect(page.locator('#preview p').first()).toHaveText('加粗 与斜体、删除、链接，价格 $5 * 2');
+
+  // Source code and unformatted text paste verbatim.
+  await editor.fill('');
+  await paste('#editor', '<div style="font-family: Menlo; white-space: pre;"><div><span style="color: #0000ff;">const</span> a = 1;</div></div>', 'const a = 1;');
+  await paste('#editor', '<span>普通 *文本*</span>', '普通 *文本*');
+  await expect(editor).toHaveValue('');
+});
+
+test('rich paste works in live paragraphs and Ctrl+Shift+V pastes plain text', async () => {
+  await page.locator('#editor').fill('第一段\n\n第二段\n');
+  await page.locator('button[data-view=live]').click();
+  await page.locator('.live-block').first().click();
+  await expect(page.locator('#live textarea')).toHaveValue('第一段');
+  await paste('#live textarea', '<table><tr><th>A</th><th>B</th></tr><tr><td>1</td><td>2</td></tr></table>', 'A\tB\n1\t2');
+  await expect(page.locator('#editor')).toHaveValue('第一段\n\n| A | B |\n| --- | --- |\n| 1 | 2 |\n\n\n第二段\n');
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#live table td')).toHaveText(['1', '2']);
+  await expect(page.locator('#live .live-block')).toHaveCount(3);
+
+  await page.locator('button[data-view=edit]').click();
+  await page.locator('#editor').fill('');
+  await app.evaluate(({ clipboard }) => clipboard.writeText('粗体\r\n原文'));
+  await page.locator('#editor').press('Control+Shift+V');
+  await expect(page.locator('#editor')).toHaveValue('粗体\n原文');
+});
