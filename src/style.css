@@ -109,3 +109,29 @@ dialog.about{width:min(460px,calc(100vw - 40px))}.about-head{display:flex;align-
 .source-search-overlay mark{color:transparent;background:#ffe18a}
 .source-search-overlay mark.search-current{background:#ef9d36}
 @media print{.source-search-overlay{display:none}}
+
+/* Replace row under the find field. */
+.search-bar{flex-wrap:wrap}
+.replace-row{display:flex;align-items:center;gap:8px;flex-basis:100%;padding-left:34px}
+.replace-row[hidden]{display:none}
+#replace-text{width:100%;min-width:0;flex:1;border:0;outline:none;padding:4px 6px;background:transparent;color:inherit;font:inherit}
+#replace-text::placeholder{color:var(--muted)}
+.search-bar button.text-button{width:auto;padding:0 10px;border:1px solid var(--line);white-space:nowrap;font-size:12px}
+#replace-toggle svg{transition:transform .15s}#replace-toggle[aria-expanded=true] svg{transform:rotate(90deg)}
+
+/* Extended Markdown: task lists, footnotes, contents, front matter and highlights. */
+.prose li.task-item{list-style:none;position:relative}
+.prose .task-box{position:absolute;left:-1.45em;top:.42em;width:1em;height:1em;border:1.5px solid var(--muted);border-radius:3px;background:var(--bg);cursor:pointer}
+.prose .task-box[aria-checked=true]{border-color:var(--accent);background:var(--accent)}
+.prose .task-box[aria-checked=true]::after{content:"";position:absolute;left:.28em;top:.06em;width:.26em;height:.55em;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg)}
+.prose mark{padding:.05em .2em;border-radius:3px;background:#ffe89a;color:inherit}
+.dark .prose mark{background:#6d5a17;color:#fff3c4}
+.prose .footnote-ref a,.prose .footnote-backref{text-decoration:none}
+.prose .footnotes-sep{margin:28px 0 12px}
+.prose .footnotes{color:var(--muted);font-size:.9em}
+.prose .footnotes p{margin:4px 0}
+.prose nav.toc{margin:16px 0;padding:12px 16px;border:1px solid var(--line);border-radius:8px;background:var(--soft);color:var(--muted);font-size:.93em}
+.prose nav.toc a{display:block;padding-top:3px;padding-bottom:3px;text-decoration:none}
+.prose nav.toc a:hover{text-decoration:underline}
+.prose pre.front-matter{border-left:3px solid var(--accent);font-size:.9em}
+@media print{#preview .prose .task-box{-webkit-print-color-adjust:exact;print-color-adjust:exact}#preview .prose nav.toc{break-inside:avoid}}

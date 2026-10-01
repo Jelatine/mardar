@@ -725,3 +725,93 @@ for (const view of ['split', 'edit']) {
     await expect(overlay).toBeHidden();
   });
 }
+
+test('extended syntax renders task lists, footnotes, contents and front matter', async () => {
+  const source = '---\ntitle: 示例\n---\n\n[toc]\n\n# 第一章\n\n- [ ] 待办\n- [x] 完成\n\n正文[^b]与[^a]，==重点== H~2~O x^2^ :smile:\n\n## 小节\n\n[^a]: 甲注\n\n[^b]: 乙注\n';
+  await page.locator('#editor').fill(source);
+  const preview = page.locator('#preview');
+  await expect(preview.locator('pre.front-matter')).toContainText('title: 示例');
+  await expect(preview.locator('nav.toc a')).toHaveText(['第一章', '小节']);
+  await expect(preview.locator('li.task-item .task-box')).toHaveCount(2);
+  await expect(preview.locator('input')).toHaveCount(0);
+  await expect(preview.locator('mark')).toHaveText('重点');
+  await expect(preview.locator('sub')).toHaveText('2');
+  await expect(preview.locator('sup:not(.footnote-ref)')).toHaveText('2');
+  await expect(preview.locator('p', { hasText: '正文' })).toContainText('😄');
+  await expect(preview.locator('.footnote-ref')).toHaveText(['[1]', '[2]']);
+  await expect(preview.locator('.footnote-item')).toHaveText([/乙注/, /甲注/]);
+  await preview.locator('.task-box').first().click();
+  await expect(page.locator('#editor')).toHaveValue(source.replace('- [ ] 待办', '- [x] 待办'));
+  await expect(preview.locator('.task-box').first()).toHaveAttribute('aria-checked', 'true');
+  await page.locator('#undo').click();
+  await expect(page.locator('#editor')).toHaveValue(source);
+
+  await page.locator('button[data-view=live]').click();
+  const live = page.locator('#live');
+  await expect(live.locator('pre.front-matter')).toHaveCount(1);
+  await expect(live.locator('nav.toc a')).toHaveText(['第一章', '小节']);
+  await expect(live.locator('.footnote-ref')).toHaveText(['[1]', '[2]']);
+  await expect(live.locator('.footnotes')).toHaveCount(2);
+  await expect(live.locator('.footnote-item')).toHaveText([/甲注/, /乙注/]);
+  await expect.poll(() => live.locator('.footnote-item').evaluateAll(items => items.map(item => item.value))).toEqual([2, 1]);
+  await live.locator('.task-box').nth(1).click();
+  await expect(page.locator('#editor')).toHaveValue(source.replace('- [x] 完成', '- [ ] 完成'));
+  await expect(live.locator('.task-box').nth(1)).toHaveAttribute('aria-checked', 'false');
+  await expect(live.locator('textarea')).toHaveCount(0);
+  await live.locator('nav.toc a').last().click();
+  await expect(live.locator('textarea')).toHaveCount(0);
+  await live.locator('.footnote-item').first().click();
+  await expect(live.locator('textarea')).toHaveValue('[^a]: 甲注');
+});
+
+test('replace edits source with literal and regex patterns and can be undone', async () => {
+  const editor = page.locator('#editor'), count = page.locator('#search-count');
+  await editor.fill('cat Cat scatter\n2026-10-01 $1');
+  await page.locator('#search-toggle').click();
+  await expect(page.locator('#replace-row')).toBeHidden();
+  await page.locator('#replace-toggle').click();
+  await expect(page.locator('#replace-one')).toBeDisabled();
+  await page.locator('#search-query').fill('cat');
+  await expect(count).toHaveText('1 / 3');
+  await page.locator('#replace-text').fill('$1 cat');
+  await page.locator('#replace-text').press('Enter');
+  await expect(editor).toHaveValue('$1 cat Cat scatter\n2026-10-01 $1');
+  await expect(count).toHaveText('2 / 3');
+  await page.locator('#replace-text').fill('dog');
+  await page.locator('#replace-one').click();
+  await expect(editor).toHaveValue('$1 cat dog scatter\n2026-10-01 $1');
+  await page.locator('#search-word').check();
+  await expect(count).toHaveText('1 / 1');
+  await page.locator('#replace-all').click();
+  await expect(editor).toHaveValue('$1 dog dog scatter\n2026-10-01 $1');
+  await expect(count).toHaveText('无匹配结果');
+  await expect(page.locator('#status')).toHaveText('已替换 1 处');
+  await page.locator('#search-word').uncheck();
+  await page.locator('#search-regex').check();
+  await page.locator('#search-query').fill('(?<y>\\d{4})-(\\d\\d)-(\\d\\d)');
+  await page.locator('#replace-text').fill('$3/$2/$<y> $$ $& $9');
+  await expect(count).toHaveText('1 / 1');
+  await page.locator('#replace-all').click();
+  await expect(editor).toHaveValue('$1 dog dog scatter\n01/10/2026 $ 2026-10-01 $9 $1');
+  await page.locator('#undo').click();
+  await expect(editor).toHaveValue('$1 dog dog scatter\n2026-10-01 $1');
+  await expect(page.locator('#dirty')).toHaveText('●');
+});
+
+test('opening replace from a rendered view switches to the source editor', async () => {
+  await page.locator('#editor').fill('# 标题\n\n**粗体** 文本');
+  await page.locator('button[data-view=read]').click();
+  await page.locator('#search-toggle').click();
+  await page.locator('#search-query').fill('**粗体**');
+  await expect(page.locator('#search-count')).toHaveText('无匹配结果');
+  await page.locator('#replace-toggle').click();
+  await expect(page.locator('.panes')).toHaveAttribute('data-view', 'edit');
+  await expect(page.locator('#replace-row')).toBeVisible();
+  await expect(page.locator('#search-count')).toHaveText('1 / 1');
+  await page.locator('#replace-text').fill('强调');
+  await page.locator('#replace-all').click();
+  await expect(page.locator('#editor')).toHaveValue('# 标题\n\n强调 文本');
+  await page.locator('button[data-view=live]').click();
+  await expect(page.locator('#replace-row')).toBeHidden();
+  await expect(page.locator('#search-bar')).toBeVisible();
+});

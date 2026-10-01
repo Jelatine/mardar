@@ -30,6 +30,7 @@
 - 新建、打开、保存及另存 Markdown 源文件，关闭或切换文档时提供保存、不保存与取消选项，取消保存或保存失败会保留窗口；每次启动默认打开空白新文档。
 - 最近打开的 12 个本地文件（重启保留）；可从系统“打开方式”选择 Mardar 打开 `.md` / `.markdown` 文件，支持冷启动和已运行实例。
 - Markdown 标题、列表、引用、表格、HTML 片段与代码高亮，工具栏提供标题、代码语言、公式和图表模板，以及可设置行列数的表格插入。
+- 扩展语法：任务列表（`- [ ]` / `- [x]`，在预览、阅读和即时编辑中点击方框即可勾选）、脚注（`[^1]`）、目录（独占一行的 `[toc]`）、文档开头的 YAML front matter、`==高亮==`、`H~2~O` 下标、`x^2^` 上标和 `:smile:` 表情。
 - KaTeX 数学公式：`$E=mc^2$` 或独立行 `$$` 包裹块级公式。
 - Mermaid 图表：使用语言名为 `mermaid` 的代码块。
 - 图片工具栏提供 Markdown、HTML `<img>`、网络 URL 和 Base64 四种入口；前两种可手动输入路径或选择本地图片，已保存文档优先使用相对路径，向上超过两级、跨盘或文档未保存时使用绝对路径。支持本地路径及 HTTPS 图片；拖入和粘贴的图片使用内嵌数据，随源文件保存。
@@ -38,6 +39,7 @@
 - **关于**：显示版本（Git tag）、作者、仓库地址、UTC 编译日期和完整提交哈希。
 - **检查更新**：启动后自动检查 GitHub 最新发布，发现新版本时在状态栏提示；也可在“关于 Mardar”或 macOS 菜单“检查更新…”中手动检查。
 - `Ctrl/Cmd+F` 打开文本搜索，支持全词匹配、大小写匹配和正则表达式；`Enter` / `Shift+Enter` 切换下一个 / 上一个结果，`Esc` 关闭。编辑和分栏视图搜索 Markdown 源码，阅读和即时编辑视图搜索渲染后的文本。最多显示 10,000 个结果，耗时过长的正则会自动停止。
+- `Ctrl+H`（macOS 为 `⌥⌘F`）或搜索栏左侧的箭头展开替换：支持替换当前匹配和全部替换，正则模式下可使用 `$1`、`$<name>`、`$&`；替换作用于 Markdown 源码，在阅读或即时编辑视图中展开时会切换到编辑视图，可撤销。
 - `Ctrl/Cmd+S` 保存、`Ctrl/Cmd+Shift+S` 另存、`Ctrl/Cmd+O` 打开、`Ctrl/Cmd+N` 新建、`Ctrl/Cmd+B/I` 粗体/斜体、`Ctrl/Cmd+Z` / `Ctrl/Cmd+Shift+Z` 撤销/重做。
 
 支持 Markdown 内嵌 HTML（例如 `<img src="doc/plan_wall_step1.png" style="zoom:60%;" />`），图片允许安全的缩放和尺寸样式，脚本及页面定位样式会被过滤。外部链接不会在编辑器内导航。数学、图表及高亮资源随应用打包，可离线使用；网络图片需要联网。
@@ -74,7 +76,7 @@ npm run pack
 npm run dist
 ```
 
-`npm test` 运行真实 Electron 集成测试，验证即时编辑、公式、图表、代码、Markdown 读写、内嵌 HTML、图片、未保存更改保护、检查更新与 PDF 输出。更新检查在测试中使用本地模拟发布源（`MARDAR_UPDATE_FEED`），不访问网络。Linux 无桌面环境时使用 `xvfb-run --auto-servernum npm test`。
+`npm test` 运行真实 Electron 集成测试，验证即时编辑、公式、图表、代码、扩展语法、查找替换、Markdown 读写、内嵌 HTML、图片、未保存更改保护、检查更新与 PDF 输出。更新检查在测试中使用本地模拟发布源（`MARDAR_UPDATE_FEED`），不访问网络。Linux 无桌面环境时使用 `xvfb-run --auto-servernum npm test`。
 
 完成打包后，使用 `node scripts/test-packaged.mjs` 对当前系统的应用包运行同一组测试。CI 也直接测试打包产物。当前构建与实测范围见 [验证记录](docs/verification.md)。
 

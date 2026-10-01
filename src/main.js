@@ -3,7 +3,7 @@ import { setupSearch } from './search';
 import 'katex/dist/katex.min.css';
 import 'highlight.js/styles/github.css';
 import './print.css';
-import { renderDocument, sourceBlocks, assignHeadingIds } from './render';
+import { renderDocument, renderBlock, sourceBlocks, assignHeadingIds, fillToc, numberFootnotes, isNoteDefinition } from './render';
 import { formulaTemplates, chartTemplates } from './templates';
 import appIcon from '../build/icon.svg';
 const api = window.desktop;
@@ -23,7 +23,7 @@ if (api) {
   }).observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['open'] });
 }
 const editor = $('#editor'); editor.value = ''; editor.placeholder = '开始写作…';
-const refreshSearch = setupSearch(editor);
+const refreshSearch = setupSearch(editor, { changed: () => changed(), status, sourceView: () => setView('edit') });
 
 function status(text) { $('#status').textContent = text; }
 function metadata() { $('#name').textContent = name; $('#dirty').textContent = editor.value !== saved ? '●' : ''; document.title = `${editor.value !== saved ? '● ' : ''}${name} · Mardar`; api?.dirty(editor.value !== saved); $('#count').textContent = `${editor.value.replace(/\s/g, '').length.toLocaleString()} 字符`; }
@@ -257,11 +257,12 @@ const contentEnd = text => text.replace(/\s+$/, '').length;
 // optionally continue editing at a source offset.
 async function renderLive(focus) {
   const generation = ++liveGeneration, host = $('#live'), entries = [], cache = new Map(), empty = !editor.value.trim();
-  for (const block of sourceBlocks(editor.value)) {
-    const key = `${document.body.classList.contains('dark')}\n${base}\n${block.text}`;
+  const blocks = sourceBlocks(editor.value), notes = blocks.filter(block => isNoteDefinition(block.text)).map(block => block.text.trimEnd()).join('\n\n');
+  for (const block of blocks) {
+    const key = `${document.body.classList.contains('dark')}\n${base}\n${block.start > 0}\n${block.text.includes('[^') ? notes : ''}\n${block.text}`;
     let view = liveCache.get(key)?.find(candidate => !entries.some(entry => entry.view === candidate));
     if (!view && empty) { view = document.createElement('p'); view.className = 'live-placeholder'; view.textContent = livePlaceholder; }
-    if (!view) { view = await renderDocument(block.text, 'markdown', base); if (generation !== liveGeneration) return; }
+    if (!view) { view = await renderBlock(block.text, base, notes, block.start > 0); if (generation !== liveGeneration) return; }
     cache.set(key, [...(cache.get(key) || []), view]);
     const item = document.createElement('div'); item.className = 'live-block'; item.tabIndex = 0;
     const entry = { block, item, view };
@@ -274,7 +275,7 @@ async function renderLive(focus) {
   // Disable its handler before committing so it cannot start a competing render.
   const active = host.querySelector('textarea'); if (active) active.onblur = null;
   entries.forEach(entry => entry.item.append(entry.view));
-  host.replaceChildren(...entries.map(entry => entry.item)); assignHeadingIds(host); host.scrollTop = scroll; refreshSearch();
+  host.replaceChildren(...entries.map(entry => entry.item)); assignHeadingIds(host); fillToc(host); numberFootnotes(host); host.scrollTop = scroll; refreshSearch();
   if (focus != null) { const entry = entries.findLast(x => x.block.start <= focus) || entries[0]; activateLive(entry, focus - entry.block.start); }
 }
 function activateLive(entry, caret) {
@@ -327,8 +328,23 @@ function caretFromPoint({ block, view }, x, y) {
   if (/\s$/.test(prefix)) while (/[^\S\n]/.test(text[i] || '')) i++;
   return i;
 }
+// Toggle a task checkbox by rewriting the marker on its list item's source line.
+// `start` is the source offset that the rendered line numbers are relative to.
+function toggleTask(box, start = 0) {
+  const line = Number(box.closest('li')?.dataset.sourceLine);
+  if (Number.isNaN(line)) return;
+  const offset = start + editor.value.slice(start).split('\n').slice(0, line).reduce((n, s) => n + s.length + 1, 0);
+  const end = editor.value.indexOf('\n', offset), match = /^([\s>]*(?:[-*+]|\d+[.)])\s+\[)([ xX])\]/.exec(editor.value.slice(offset, end < 0 ? undefined : end));
+  if (!match) return;
+  breakHistoryGroup();
+  editor.setRangeText(match[2] === ' ' ? 'x' : ' ', offset + match[1].length, offset + match[1].length + 1, 'preserve');
+  changed(); breakHistoryGroup();
+  if ($('.panes').dataset.view === 'live') { const active = $('#live textarea'); if (active) active.onblur = null; renderLive(); }
+}
 $('#live').addEventListener('mousedown', e => {
   const host = e.currentTarget, bounds = host.getBoundingClientRect();
+  const box = e.button === 0 && e.target.closest('.task-box');
+  if (box) { e.preventDefault(); toggleTask(box, liveBlocks.find(x => x.item.contains(box))?.block.start); return; }
   if (e.button !== 0 || e.target.closest('textarea, a') || e.clientX >= bounds.left + host.clientWidth || !liveBlocks.length) return;
   e.preventDefault();
   let entry = liveBlocks.find(x => x.item.contains(e.target)), caret;
@@ -372,6 +388,7 @@ function syncCaret() {
 }
 editor.addEventListener('click', syncCaret); editor.addEventListener('keyup', syncCaret);
 $('#preview').addEventListener('click', e => {
+  const box = e.target.closest('.task-box'); if (box) { toggleTask(box); return; }
   if ($('.panes').dataset.view !== 'split' || e.target.closest('a')) return;
   const node = e.target.closest('[data-source-line]'); if (!node) return;
   const line = +node.dataset.sourceLine;
