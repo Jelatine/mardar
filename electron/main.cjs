@@ -11,7 +11,9 @@ const themeColors = () => {
   return { color: modalOpen ? dimColor(color) : color, symbolColor: modalOpen ? dimColor(symbolColor) : symbolColor, height: 47 };
 };
 const filters = [{ name: 'Markdown', extensions: ['md', 'markdown'] }];
-function authorized(event) { if (event.sender !== win.webContents || event.senderFrame !== win.webContents.mainFrame) throw new Error('Untrusted sender'); }
+// Messages can still arrive just after the window is destroyed; touching it then throws.
+const windowGone = () => !win || win.isDestroyed();
+function authorized(event) { if (windowGone() || event.sender !== win.webContents || event.senderFrame !== win.webContents.mainFrame) throw new Error('Untrusted sender'); }
 function handle(name, fn) { ipcMain.handle(name, async (event, ...args) => { authorized(event); return fn(...args); }); }
 handle('window:theme', dark => {
   darkTheme = dark === true; nativeTheme.themeSource = darkTheme ? 'dark' : 'light';
@@ -131,7 +133,7 @@ handle('window:context-menu', context => {
   if (context.document === true) template.push(...(template.length ? [separator] : []), item('查找…', 'find'), item('替换…', 'replace'));
   if (template.length) Menu.buildFromTemplate(template).popup({ window: win });
 });
-ipcMain.on('document:dirty', (event, value) => { authorized(event); dirty = !!value; win.setDocumentEdited(dirty); });
+ipcMain.on('document:dirty', (event, value) => { if (windowGone()) return; authorized(event); dirty = !!value; win.setDocumentEdited(dirty); });
 app.whenReady().then(async () => {
   if (!lock) return;
   try { recent = JSON.parse(await fs.readFile(path.join(app.getPath('userData'), 'recent.json'), 'utf8')).filter(isMarkdown).slice(0, 12); } catch {}
