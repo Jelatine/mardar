@@ -135,3 +135,4 @@ dialog.about{width:min(460px,calc(100vw - 40px))}.about-head{display:flex;align-
 .prose nav.toc a:hover{text-decoration:underline}
 .prose pre.front-matter{border-left:3px solid var(--accent);font-size:.9em}
 @media print{#preview .prose .task-box{-webkit-print-color-adjust:exact;print-color-adjust:exact}#preview .prose nav.toc{break-inside:avoid}}
+#external-notice{display:flex;align-items:center;gap:8px;padding:8px 23px;border-bottom:1px solid var(--line);background:#fbf5e4;font-size:12px;color:#7a6330}#external-notice[hidden]{display:none}#external-notice span{flex:1;min-width:0}#external-notice button{padding:6px 12px;font-size:12px;border:1px solid var(--line)}.dark #external-notice{background:#3a3624;color:#e3d6a8}

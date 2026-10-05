@@ -8,7 +8,7 @@
     display: block !important; width: 100% !important; height: auto !important;
     overflow: visible !important; background: #fff !important; color: #1f2937 !important;
   }
-  .sidebar, header, .toolbar, .editor-pane, .pane-label, footer, dialog, #live { display: none !important; }
+  .sidebar, header, .toolbar, #external-notice, .editor-pane, .pane-label, footer, dialog, #live { display: none !important; }
   #preview { padding: 0 !important; }
   #preview .prose {
     max-width: none; margin: 0; font-family: "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", "Segoe UI", sans-serif;

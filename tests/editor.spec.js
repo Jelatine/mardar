@@ -1,5 +1,5 @@
 import { test, expect, _electron as electron } from '@playwright/test';
-import { mkdtemp, mkdir, writeFile, readFile, copyFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, writeFile, readFile, copyFile, rename, unlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -928,4 +928,59 @@ test('context menu edits the focused live paragraph', async () => {
   await expect(page.locator('#editor')).toHaveValue('第一段\n\n*第二段*\n');
   await expect(page.locator('#live textarea')).toHaveValue('*第二段*');
   expect(await contextMenu(page.locator('.live-block').first())).toEqual(['查找…', '替换…']);
+});
+
+test('external changes reload clean documents and ask before replacing edits', async () => {
+  const file = path.join(folder, 'shared.md'); await writeFile(file, '# 原始\n');
+  await chooseOpen(file); await page.locator('#open').click();
+  await expect(page.locator('#editor')).toHaveValue('# 原始\n');
+  // Clean documents follow the disk, including editors that save by replacing the file.
+  await writeFile(file, '# 外部修改\n');
+  await expect(page.locator('#preview h1')).toHaveText('外部修改');
+  await expect(page.locator('#dirty')).toBeEmpty();
+  await writeFile(path.join(folder, 'shared.tmp'), '# 原子保存\r\n'); await rename(path.join(folder, 'shared.tmp'), file);
+  await expect(page.locator('#editor')).toHaveValue('# 原子保存\n');
+  await expect(page.locator('#dirty')).toBeEmpty();
+  await expect(page.locator('#external-notice')).toBeHidden();
+  // Edits are kept until the user picks a version; saving never overwrites silently.
+  await page.locator('button[data-view=split]').click();
+  await page.locator('#editor').fill('# 我的修改\n');
+  await writeFile(file, '# 他人修改\n');
+  await expect(page.locator('#external-notice')).toBeVisible();
+  await expect(page.locator('#editor')).toHaveValue('# 我的修改\n');
+  await page.locator('#save').click();
+  await expect(page.locator('#status')).toContainText('未保存');
+  expect(await readFile(file, 'utf8')).toBe('# 他人修改\n');
+  await page.locator('[data-external=reload]').click();
+  await expect(page.locator('#editor')).toHaveValue('# 他人修改\n');
+  await expect(page.locator('#dirty')).toBeEmpty();
+  await expect(page.locator('#external-notice')).toBeHidden();
+  await page.locator('#undo').click();
+  await expect(page.locator('#editor')).toHaveValue('# 我的修改\n');
+  await expect(page.locator('#dirty')).toHaveText('●');
+  // Keeping my version lets the next save overwrite the disk.
+  await writeFile(file, '# 再次修改\n');
+  await expect(page.locator('#external-notice')).toBeVisible();
+  await page.locator('[data-external=keep]').click();
+  await expect(page.locator('#external-notice')).toBeHidden();
+  await page.locator('#save').click();
+  await expect.poll(() => readFile(file, 'utf8')).toBe('# 我的修改\n');
+  await expect(page.locator('#dirty')).toBeEmpty();
+  // Our own save must not be reported back as an external change.
+  await page.waitForTimeout(500);
+  await expect(page.locator('#external-notice')).toBeHidden();
+  await expect(page.locator('#status')).toHaveText('文档已保存');
+});
+
+test('a deleted file keeps its content and counts as unsaved', async () => {
+  const file = path.join(folder, 'gone.md'); await writeFile(file, '# 将被删除\n');
+  await chooseOpen(file); await page.locator('#open').click();
+  await expect(page.locator('#editor')).toHaveValue('# 将被删除\n');
+  await unlink(file);
+  await expect(page.locator('#status')).toContainText('删除或移动');
+  await expect(page.locator('#editor')).toHaveValue('# 将被删除\n');
+  await expect(page.locator('#dirty')).toHaveText('●');
+  await page.locator('#save').click();
+  await expect.poll(() => readFile(file, 'utf8')).toBe('# 将被删除\n');
+  await expect(page.locator('#dirty')).toBeEmpty();
 });

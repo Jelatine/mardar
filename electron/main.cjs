@@ -1,5 +1,6 @@
 const { app, BrowserWindow, ipcMain, dialog, Menu, nativeTheme, shell, clipboard } = require('electron');
 const fs = require('node:fs/promises');
+const { watch } = require('node:fs');
 const path = require('node:path');
 const { pathToFileURL, fileURLToPath } = require('node:url');
 let win, currentPath = null, dirty = false, darkTheme = false, modalOpen = false, closePending = false, allowClose = false, quitting = false;
@@ -23,7 +24,7 @@ handle('window:modal', open => {
   modalOpen = open === true;
   if (process.platform !== 'darwin') win.setTitleBarOverlay(themeColors());
 });
-handle('document:new', () => { currentPath = null; dirty = false; });
+handle('document:new', () => { currentPath = null; dirty = false; watchDocument(null); });
 const buildInfo = require('./build-info.json');
 let recent = [], pending = [], rendererReady = false;
 const isMarkdown = file => typeof file === 'string' && /\.(md|markdown)$/i.test(file);
@@ -32,10 +33,39 @@ async function remember(file) {
   await fs.writeFile(path.join(app.getPath('userData'), 'recent.json'), JSON.stringify(recent));
   app.addRecentDocument(file);
 }
+// Other programs may edit the open file. diskContent is the version the renderer
+// has accepted; diskSeen is the latest one reported, so each change is sent once.
+let watcher = null, watchTimer, diskContent = null, diskSeen = null, saving = false;
+function watchDocument(content) {
+  watcher?.close(); watcher = null; clearTimeout(watchTimer);
+  diskContent = diskSeen = content;
+  if (!currentPath) return;
+  const file = currentPath;
+  // Watch the folder: many editors save by replacing the file, which ends a watch on the file itself.
+  try {
+    watcher = watch(path.dirname(file), (_event, name) => { if (!name || name.toString() === path.basename(file)) checkDiskSoon(); });
+    watcher.on('error', () => {});
+  } catch {}
+}
+function checkDiskSoon() { clearTimeout(watchTimer); watchTimer = setTimeout(checkDisk, 150); }
+async function readDisk(file) {
+  try { return await fs.readFile(file, 'utf8'); } catch (e) { if (e.code === 'ENOENT') return null; throw e; }
+}
+async function checkDisk() {
+  const file = currentPath;
+  if (!file || saving || windowGone()) return;
+  let content;
+  try { content = await readDisk(file); } catch { return; }
+  if (file !== currentPath || saving || windowGone() || content === diskSeen) return;
+  diskSeen = content;
+  // null means the file was deleted or moved away.
+  win.webContents.send('document:external-change', content);
+}
+handle('document:accept-disk', content => { if (typeof content === 'string' || content === null) diskContent = content; });
 async function openFile(file) {
   if (!isMarkdown(file)) throw new Error('仅支持 Markdown 文件');
   const content = await fs.readFile(file, 'utf8');
-  await remember(file); currentPath = file; dirty = false;
+  await remember(file); currentPath = file; dirty = false; watchDocument(content);
   return { content, name: path.basename(file), base: pathToFileURL(path.dirname(file) + path.sep).href, format: 'markdown' };
 }
 handle('document:open', async () => {
@@ -86,7 +116,16 @@ handle('document:save', async ({ content, saveAs, format }) => {
     target = result.filePath;
   }
   if (!isMarkdown(target)) target += '.md';
-  await fs.writeFile(target, content, 'utf8'); await remember(target); currentPath = target; dirty = false;
+  // Refuse to overwrite changes another program made since the renderer last accepted the file.
+  if (!saveAs && target === currentPath) {
+    const disk = await readDisk(target);
+    if (disk !== null && disk !== diskContent) { diskSeen = disk; return { conflict: true, content: disk }; }
+  }
+  saving = true;
+  try { await fs.writeFile(target, content, 'utf8'); } finally { saving = false; }
+  await remember(target);
+  if (target === currentPath) { diskContent = diskSeen = content; checkDiskSoon(); } else { currentPath = target; watchDocument(content); }
+  dirty = false;
   return { name: path.basename(target), base: pathToFileURL(path.dirname(target) + path.sep).href };
 });
 handle('document:image', async mode => {
@@ -139,10 +178,12 @@ app.whenReady().then(async () => {
   try { recent = JSON.parse(await fs.readFile(path.join(app.getPath('userData'), 'recent.json'), 'utf8')).filter(isMarkdown).slice(0, 12); } catch {}
   const create = () => {
     closePending = false; allowClose = false; quitting = false;
-    currentPath = null; dirty = false; rendererReady = false; darkTheme = false; modalOpen = false; nativeTheme.themeSource = 'light';
+    currentPath = null; dirty = false; rendererReady = false; watchDocument(null); darkTheme = false; modalOpen = false; nativeTheme.themeSource = 'light';
     win = new BrowserWindow({ icon: path.join(__dirname, '../build/icon.png'), titleBarStyle: 'hidden', ...(process.platform === 'darwin' ? {} : { titleBarOverlay: themeColors() }), width: 1440, height: 940, minWidth: 800, minHeight: 600, backgroundColor: '#ffffff', webPreferences: { preload: path.join(__dirname, 'preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true } });
     win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
     win.webContents.on('will-navigate', event => event.preventDefault());
+    // Folder watching can miss changes (e.g. on network drives); check again when the user comes back.
+    win.on('focus', checkDiskSoon);
     win.on('close', event => {
       if (allowClose || !dirty) return;
       event.preventDefault();
