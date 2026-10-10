@@ -107,8 +107,19 @@ handle('update:install', async () => { await updater.install(); dirty = false; s
 function queueFile(file) { if (!isMarkdown(file)) return; pending.push(path.resolve(file)); if (rendererReady && win && !win.isDestroyed()) win.webContents.send('document:requested'); }
 const lock = app.requestSingleInstanceLock();
 if (!lock) app.quit();
-app.on('second-instance', (_event, argv) => { argv.filter(isMarkdown).forEach(queueFile); if (win) { if (win.isMinimized()) win.restore(); win.focus(); } });
-app.on('open-file', (event, file) => { event.preventDefault(); queueFile(file); });
+let createWindow = null;
+// Bring the window to the front for an open request; on macOS the app was closed to the Dock or is being activated
+// cooperatively by Finder, so recreate the window if needed and take focus explicitly.
+function revealWindow() {
+  if (!app.isReady()) return;
+  if (!win || win.isDestroyed()) { createWindow?.(); return; }
+  if (win.isMinimized()) win.restore();
+  win.show();
+  if (process.platform === 'darwin') app.focus({ steal: true });
+  win.focus();
+}
+app.on('second-instance', (_event, argv) => { argv.filter(isMarkdown).forEach(queueFile); revealWindow(); });
+app.on('open-file', (event, file) => { event.preventDefault(); queueFile(file); revealWindow(); });
 process.argv.slice(1).filter(isMarkdown).forEach(queueFile);
 handle('document:save', async ({ content, saveAs, format }) => {
   if (typeof content !== 'string') throw new Error('Invalid document');
@@ -193,10 +204,13 @@ app.whenReady().then(async () => {
       event.preventDefault();
       if (!closePending) { closePending = true; win.webContents.send('window:close-request'); }
     });
+    // A cold launch from Finder may not activate the app on recent macOS; take focus once the window exists.
+    win.once('ready-to-show', () => { if (process.platform === 'darwin') app.focus({ steal: true }); win.focus(); });
     win.loadFile(path.join(__dirname, '../dist/index.html'));
   };
   Menu.setApplicationMenu(Menu.buildFromTemplate([{ label: 'Mardar', submenu: [{ label: '关于 Mardar', click: () => win?.webContents.send('app:show-about', false) }, { label: '检查更新…', click: () => win?.webContents.send('app:show-about', true) }, { type: 'separator' }, { role: 'quit' }] }, { label: '编辑', submenu: [{ label: '撤销', accelerator: 'CmdOrCtrl+Z', click: () => win.webContents.send('document:history', false) }, { label: '重做', accelerator: 'CmdOrCtrl+Shift+Z', click: () => win.webContents.send('document:history', true) }, { type: 'separator' }, { role: 'cut' }, { role: 'copy' }, { role: 'paste' }, { role: 'selectAll' }] }, { label: '视图', submenu: [{ role: 'resetZoom' }, { role: 'zoomIn' }, { role: 'zoomOut' }, { role: 'togglefullscreen' }] }]));
   if (process.platform !== 'darwin') Menu.setApplicationMenu(null);
+  createWindow = create;
   create(); app.on('activate', () => { if (!BrowserWindow.getAllWindows().length) create(); });
   // Quietly look for a newer release; the renderer shows a notice only when one exists.
   if (app.isPackaged) setTimeout(() => updater.check(buildInfo.version).then(result => { if (result.available && win && !win.isDestroyed()) win.webContents.send('update:available', result); }).catch(() => {}), 5000);
