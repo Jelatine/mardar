@@ -1,6 +1,6 @@
 const { app, BrowserWindow, ipcMain, dialog, Menu, nativeTheme, shell, clipboard } = require('electron');
 const fs = require('node:fs/promises');
-const { watch } = require('node:fs');
+const { watch, realpathSync } = require('node:fs');
 const path = require('node:path');
 const { pathToFileURL, fileURLToPath } = require('node:url');
 let win, currentPath = null, dirty = false, darkTheme = false, modalOpen = false, closePending = false, allowClose = false, quitting = false;
@@ -42,8 +42,11 @@ function watchDocument(content) {
   if (!currentPath) return;
   const file = currentPath;
   // Watch the folder: many editors save by replacing the file, which ends a watch on the file itself.
+  // Windows reports changed names relative to the long path, so watch the long form of 8.3 names like RUNNER~1.
+  let real = file;
+  try { real = realpathSync.native(file); } catch {}
   try {
-    watcher = watch(path.dirname(file), (_event, name) => { if (!name || name.toString() === path.basename(file)) checkDiskSoon(); });
+    watcher = watch(path.dirname(real), (_event, name) => { if (!name || name.toString() === path.basename(real)) checkDiskSoon(); });
     watcher.on('error', () => {});
   } catch {}
 }
