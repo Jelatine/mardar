@@ -29,6 +29,7 @@ contextBridge.exposeInMainWorld('desktop', {
   contextMenu: context => ipcRenderer.invoke('window:context-menu', context),
   onMenuAction: callback => ipcRenderer.on('menu:action', (_event, action) => callback(action)),
   clipboardText: () => ipcRenderer.invoke('clipboard:text'),
+  copyText: text => ipcRenderer.invoke('clipboard:write', text),
   dirty: value => ipcRenderer.send('document:dirty', value),
   onExternalChange: callback => ipcRenderer.on('document:external-change', (_event, content) => callback(content)),
   acceptDisk: content => ipcRenderer.invoke('document:accept-disk', content),

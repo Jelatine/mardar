@@ -430,7 +430,7 @@ $('#live').addEventListener('mousedown', e => {
   const host = e.currentTarget, bounds = host.getBoundingClientRect();
   const box = e.button === 0 && e.target.closest('.task-box');
   if (box) { e.preventDefault(); toggleTask(box, liveBlocks.find(x => x.item.contains(box))?.block.start); return; }
-  if (e.button !== 0 || e.target.closest('textarea, a') || e.clientX >= bounds.left + host.clientWidth || !liveBlocks.length) return;
+  if (e.button !== 0 || e.target.closest('textarea, a, .code-copy') || e.clientX >= bounds.left + host.clientWidth || !liveBlocks.length) return;
   e.preventDefault();
   let entry = liveBlocks.find(x => x.item.contains(e.target)), caret;
   const active = $('#live textarea');

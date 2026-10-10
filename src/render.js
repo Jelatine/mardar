@@ -90,6 +90,21 @@ md.core.ruler.push('source_positions', state => {
 const fence = md.renderer.rules.fence;
 md.renderer.rules.fence = (tokens, i, options, env, self) => tokens[i].info.trim() === 'mermaid' ? `<pre class="mermaid" data-source-line="${tokens[i].map[0]}" data-source-end="${tokens[i].map[1]}">${md.utils.escapeHtml(tokens[i].content)}</pre>` : fence(tokens, i, options, env, self);
 let counter = 0;
+const copyIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>';
+const copiedIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 5 5 9-10"/></svg>';
+// The button holds only an icon so rendered text (search, caret mapping) is unchanged.
+function addCopyButton(pre, code) {
+  const block = document.createElement('div'), button = document.createElement('button');
+  block.className = 'code-block'; button.type = 'button'; button.className = 'code-copy'; button.title = '复制代码'; button.setAttribute('aria-label', '复制代码'); button.innerHTML = copyIcon;
+  let reset;
+  button.addEventListener('click', async () => {
+    const text = code.textContent.replace(/\n$/, '');
+    try { await (window.desktop ? window.desktop.copyText(text) : navigator.clipboard.writeText(text)); } catch { return; }
+    clearTimeout(reset); button.innerHTML = copiedIcon; button.classList.add('copied'); button.title = '已复制'; button.setAttribute('aria-label', '已复制');
+    reset = setTimeout(() => { button.innerHTML = copyIcon; button.classList.remove('copied'); button.title = '复制代码'; button.setAttribute('aria-label', '复制代码'); }, 1500);
+  });
+  pre.replaceWith(block); block.append(pre, button);
+}
 function followAnchor(event) {
   event.preventDefault();
   const a = event.currentTarget, href = a.getAttribute('href');
@@ -170,6 +185,7 @@ export async function renderDocument(source, format, base, env = {}) {
     try { const { svg } = await renderDiagram(id, node.textContent, dark); node.innerHTML = DOMPurify.sanitize(svg, { USE_PROFILES: { svg: true, svgFilters: true, html: true } }); }
     catch { document.getElementById(`d${id}`)?.remove(); node.className = 'diagram-error'; node.textContent = '图表语法有误，请检查 Mermaid 代码。'; }
   }
+  for (const pre of root.querySelectorAll('pre')) { const code = pre.querySelector(':scope > code'); if (code) addCopyButton(pre, code); }
   assignHeadingIds(root);
   root.querySelectorAll('a').forEach(a => a.addEventListener('click', followAnchor));
   fillToc(root);

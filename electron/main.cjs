@@ -150,6 +150,7 @@ handle('document:pdf', async () => {
   await fs.writeFile(result.filePath, data); return result.filePath;
 });
 handle('clipboard:text', () => clipboard.readText());
+handle('clipboard:write', text => { if (typeof text === 'string') clipboard.writeText(text); });
 // The renderer describes what was right-clicked. Clipboard commands stay native
 // roles; document commands are sent back to the renderer as actions.
 handle('window:context-menu', context => {

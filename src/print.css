@@ -3,7 +3,7 @@
 @media print {
   :root { background: #fff !important; color-scheme: light !important; --bg: #fff; }
   .source-active { outline: none !important; }
-  .insert-menu { display: none !important; }
+  .insert-menu, .code-copy { display: none !important; }
   html, body, #app, main, .panes, .preview-pane, #preview {
     display: block !important; width: 100% !important; height: auto !important;
     overflow: visible !important; background: #fff !important; color: #1f2937 !important;

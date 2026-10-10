@@ -108,6 +108,19 @@ test('live editing preserves Markdown and supports save', async () => {
   const file = path.join(folder, 'live.md'); await chooseSave(file); await page.locator('#save').click();
   await expect.poll(() => readFile(file, 'utf8')).toBe('# 新标题\n\n正文 **粗体**\n');
 });
+test('code blocks copy their source from preview and live view', async () => {
+  await page.locator('#editor').fill('```js\nconst a = 1;\nconsole.log(a);\n```\n');
+  await page.locator('#preview pre').hover();
+  await page.locator('#preview .code-copy').click();
+  await expect(page.locator('#preview .code-copy')).toHaveAttribute('title', '已复制');
+  expect(await app.evaluate(({ clipboard }) => clipboard.readText())).toBe('const a = 1;\nconsole.log(a);');
+  await app.evaluate(({ clipboard }) => clipboard.writeText(''));
+  await page.locator('button[data-view=live]').click();
+  await page.locator('#live pre').hover();
+  await page.locator('#live .code-copy').click();
+  await expect(page.locator('#live textarea')).toHaveCount(0);
+  expect(await app.evaluate(({ clipboard }) => clipboard.readText())).toBe('const a = 1;\nconsole.log(a);');
+});
 test('unsaved edits protect switching but startup ignores legacy drafts', async () => {
   await page.locator('#editor').fill('# 未保存的草稿');
   await page.locator('#new').click(); await expect(page.locator('#confirm')).toBeVisible();
