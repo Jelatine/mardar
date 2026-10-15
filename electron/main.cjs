@@ -200,7 +200,9 @@ app.whenReady().then(async () => {
     // Folder watching can miss changes (e.g. on network drives); check again when the user comes back.
     win.on('focus', checkDiskSoon);
     win.on('close', event => {
-      if (allowClose || !dirty) return;
+      // Dirty IPC can lag behind an edit. Let the ready renderer decide whether
+      // closing needs confirmation, even when the main process still sees clean.
+      if (allowClose || (!rendererReady && !dirty)) return;
       event.preventDefault();
       if (!closePending) { closePending = true; win.webContents.send('window:close-request'); }
     });

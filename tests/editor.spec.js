@@ -550,6 +550,21 @@ test('near image paths are relative and distant paths are absolute', async () =>
     expect(result.url).toBe(expected);
   }
 });
+test('close protects edits before the main process receives the dirty notification', async () => {
+  // Hold back the asynchronous dirty IPC so close deterministically sees stale state.
+  await app.evaluate(({ ipcMain }) => ipcMain.removeAllListeners('document:dirty'));
+  await page.locator('#editor').fill('# 尚未同步的修改');
+  await expect(page.locator('#dirty')).toHaveText('●');
+  expect(await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].isDocumentEdited())).toBe(false);
+  const close = () => app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].close());
+  await close();
+  await expect(page.locator('#confirm')).toContainText('关闭前保存更改');
+  await page.locator('[data-choice=cancel]').click();
+  await expect(page.locator('#editor')).toHaveValue('# 尚未同步的修改');
+  await close();
+  await page.locator('[data-choice=discard]').click();
+  await expect.poll(() => app.windows().length).toBe(0);
+});
 test('discard closes a dirty window without writing a file', async () => {
   await page.locator('#editor').fill('# 放弃修改');
   await app.evaluate(({ dialog, BrowserWindow }) => {
